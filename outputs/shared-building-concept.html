@@ -1,0 +1,10 @@
+<!doctype html><html><head><style>
+:root{font-family:var(--font-sans);color:var(--foreground)}
+body{margin:0} .floor{padding:16px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;gap:16px}.floor span{color:var(--muted-foreground)}.flow{margin-top:20px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}.node{background:var(--card);padding:16px;border-radius:var(--radius)} small{color:var(--muted-foreground)}
+</style></head><body><main aria-label="Proposed shared building and data flow">
+<div class="floor"><b>Floor 3 · Your office</b><span>Private by default</span></div>
+<div class="floor"><b>Floor 2 · Felix’s office</b><span>Invited viewers only</span></div>
+<div class="floor"><b>Floor 1 · Another friend</b><span>Approved activity only</span></div>
+<div class="floor"><b>Lobby · Building directory</b><span>Membership + elevator</span></div>
+<div class="flow" aria-label="Local data is filtered before sharing through an authenticated relay"><div class="node">Local T3 data</div><span>→</span><div class="node">Owner’s sharing filter</div><span>→</span><div class="node">Authenticated relay</div><span>→</span><div class="node">Approved friends</div></div>
+</main></body></html>
