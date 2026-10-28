@@ -76,3 +76,21 @@ Final verification: npm test (12 passed), npm run build (TypeScript and client b
 ## Handoff format
 
 For substantial work record: objective; completed work; files; branch/worktree; actual verification; material decisions; limitations/blockers; remaining work; next action; integration/deployment status. Link existing artifacts rather than copying conversation history.
+
+## OFF-008 — Preserve original office and add optional friends/customization menu
+
+- Priority/owner/status: P0 / HQ / Done.
+- Scope: User correction: original full-screen office/HUD first; optional account/invites/shared floor selection in an in-office menu. Persistent local character names/areas, owner-controlled shared profiles and category summaries visible only to activity guests. Keep original private data local.
+- Dependencies: OFF-004/OFF-005; explicit user request and office-first correction.
+- Acceptance: No account/dashboard before own office; local rename persists; explicit sharing transmits only allowed fields; invited visitor sees shared name/area; presence guests cannot; original standalone interactions remain available.
+- Verification: Typecheck/build and 13 API/bridge tests passed. Original-office browser acceptance passed for account-free startup/HUD, local rename persistence, names/areas shared to an invited guest, status transitions, pause/revoke, mobile and German menus. Independent read-only review identified pending sharing/account-response races; HQ fixed them. Additional browser protocol checks passed for stale account results, logout during delayed session/unpause, and covered/recovering stalled snapshots independent of a renderer. Synthetic screenshots inspected. Upstream copy at b14eb1c remains clean, and usage calculation modules are unchanged.
+- Handoff: entry.ts/main.ts/officemenu.ts and compact building menu; character metadata API/table and tests; shared-source category grouping and network recovery; stable CLI pseudonyms; explicit local launcher; documentation. Integrated on feat/collaborative-building in the local checkout, not pushed/deployed. Next: try the original-office flow with the optional menu; public hosting remains a separate release task.
+
+## OFF-009 — Investigate usage discrepancy
+
+- Priority/owner/status: P1 / HQ / Blocked.
+- Scope: Explain reported differences in both cost and tokens between T3 Code and upstream office without inventing a numerical reconciliation or changing calculations speculatively.
+- Dependencies/blocker: Exact paired values, selected ranges, timezone and specific views were not provided. User confirmed both cost and tokens differ.
+- Findings: Small receipt counts completed T3 turns since local midnight and excludes cached input; detailed costs include provider-native sessions/cached tokens over their own range and use a 45-second cache plus richer pricing. Static demo figures are simulated. This can explain differences, but does not confirm the user's specific root cause.
+- Verification: Inspected server/t3.ts freshTokens/turnCost/today totals and server/costs.ts collect/aggregate/pricing/TTL; no private transcripts or actual usage totals read. Added an explanatory receipt tooltip without changing layout or amounts.
+- Next action: Reconcile matching detailed views once paired values/ranges are available. Describe any upstream report as an observed discrepancy pending confirmation; do not send messages on the user's behalf.

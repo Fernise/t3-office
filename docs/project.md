@@ -9,12 +9,13 @@ The first local MVP imports upstream revision **b14eb1c1f02933df071f62f32f79ed95
 Implemented locally:
 
 - Accounts and seven-day cookie sessions; one office per account.
-- A floor directory containing owned and explicitly granted offices only.
+- An optional in-office friends menu containing owned and explicitly granted floors only; the original own office/HUD is the default, without mandatory accounts.
 - Single-use, 24-hour invitations for presence-only or anonymous activity access, explicit acceptance, invitation cancellation and visitor revocation.
 - Owner office naming and pause/resume; pause clears the current snapshot.
 - Persistent SQLite state and hashed passwords/tokens.
 - Synthetic activity publishing, revocable 30-day publish-only credentials and an explicit local-to-relay bridge.
-- Selected-floor Three.js rendering with authorized snapshots; no hidden floor renderers.
+- Full-screen original Three.js rendering with authorized snapshots when visiting a shared floor; no hidden floor renderers. The menu uses a separate iframe to preserve original DOM/styles.
+- Persistent local character names and work-area categories, with explicit optional sharing and owner-controlled shared profile overrides.
 - English/German shell, responsive layout, permission/concurrency tests and browser acceptance checks.
 
 Not implemented: continuous 3D exterior/elevator animation, human avatars/chat, remote agent control, account recovery, managed hosting, production TLS/proxy configuration or operational monitoring. Real private T3 data has not been used for development verification.
@@ -25,7 +26,7 @@ Not implemented: continuous 3D exterior/elevator animation, human avatars/chat, 
 - 2026-10-28: The user delegated project leadership, model selection and implementation decisions to HQ and requested continued execution without routine approval pauses. This supersedes earlier per-task approval gates; spending, public production deployment, third-party contact, destructive actions and private-data exposure remain outside routine implementation authority.
 - 2026-10-28: Use a pinned upstream source import to preserve this starter checkout and avoid creating an external fork/account resource. Record the exact revision and retain original license, authorship and README.
 - 2026-10-28: Keep one persistent HQ; use bounded temporary tasks/agents when useful. Product and architecture coordination remain combined. No permanent specialist threads yet.
-- 2026-10-28: Use the existing TypeScript/Vite/Three.js stack and native Node SQLite/crypto, adding no runtime dependencies for collaboration. The lobby is a small dynamic entry point; each selected office uses an iframe to isolate renderer lifetime and upstream DOM/CSS. HTTP polling suits this first milestone; multiplayer avatars or chat could justify streaming later.
+- 2026-10-28: Use the existing TypeScript/Vite/Three.js stack and native Node SQLite/crypto, adding no runtime dependencies for collaboration. The first milestone used a lightweight lobby and iframe office renderer; that layout was superseded by the office-first correction below. HTTP polling suits this milestone; multiplayer avatars or chat could justify streaming later.
 - 2026-10-28: Share only up to 24 opaque agent IDs, provider and status. The bridge pseudonymizes original IDs locally with a per-run key; the server assigns generic names. No titles, task descriptions, model details, prompts, file paths, raw tools, transcript, context or cost sharing.
 - 2026-10-28: Presence-only means online/offline state, without agent counts or agents. Activity access reveals the allowlisted snapshot. Names chosen for profiles/offices are visible to accepted visitors. Grants persist until revoked.
 - 2026-10-28: Pause clears snapshots and blocks further publishing until resumed. No fresh publication for 45 seconds means offline. Authorization is enforced per read; the browser refreshes normally every 3–5 seconds, with seven-second request timeouts. Already disclosed information cannot be recalled from recipients.
@@ -57,3 +58,13 @@ Native same-provider agents were used for a bounded backend implementation and i
 3. Consider a richer building/elevator transition after validating consent, publishing and navigation.
 
 After the first user trial, simplify redundant process or split responsibilities only if recurring work warrants it.
+
+## Office-first revision (2026-10-28)
+
+The user's explicit correction supersedes the first milestone's dashboard-first shell: start directly in the original full-screen own office, preserving its HUD and behavior. Accounts, invitations, visiting shared floors and customization belong in an optional Friends & characters menu. No account is needed to see or rename local characters.
+
+Work areas are owner-chosen categories, never inferred from tasks, project paths or prompts. Local aliases/areas stay in browser storage until the owner explicitly shares. Browser publication includes pseudonymous IDs, provider/status, character names and chosen areas; the server stores profile overrides independently of heartbeats. Presence-only access still excludes all names, areas and activity. Same-area shared coworkers sit together in six-seat pods without exceeding the office's four-pod capacity.
+
+Browser sharing is opt-in for the current page, with an explicit Stop sharing action that pauses/clears the office. CLI IDs now remain stable for a publisher key across restarts; a key rotation changes pseudonyms. This supersedes the initial per-run ID decision. The shared service's defaults still disable private local T3 routes; npm run local is an explicit loopback-only launcher for the original live experience.
+
+The user also reported different cost and token figures in T3 Code and upstream T3 Office. Code inspection confirms non-equivalent measures: the small receipt uses completed T3 turns since local midnight and excludes cached input; detailed usage scans provider-native sessions for its selected range, includes cached input, and has a 45-second cache plus richer pricing logic. The public demo is synthetic. Both differing metrics are confirmed by user report, but exact values/ranges/timezones and the matching T3 Code view are missing. No arithmetic bug or exact reconciliation is claimed. No actual private cost/session data was read for this investigation; do not contact upstream without a separate explicit instruction.

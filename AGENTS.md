@@ -12,6 +12,7 @@ These rules apply to HQ, specialist and execution conversations, reviewers, manu
 ## Execute and coordinate
 
 - Stay within approved scope. Preserve others' changes and coordinate overlapping files. Routine local decisions do not require HQ approval.
+- Preserve the original full-screen own office and HUD as the home screen. Friends, invitations, floor visits and customization are optional in-office menu features, not a replacement dashboard or mandatory account flow.
 - HQ combines product priorities, architecture coordination, ownership and integration oversight. It may handle small tasks directly. Prefer focused execution conversations or agents for substantial bounded work when the benefit exceeds coordination cost.
 - The user authorizes HQ to select models and settings for approved tasks, balancing capability, latency, cost and independent review. Use available providers and respect runtime limits. If a requested provider/model is unavailable, report it rather than silently substituting. Recheck capabilities when needed; do not hard-code a model roster here.
 - A task approval allows useful delegation within its scope, not unrelated future work. Include role, objective, scope, relevant context, critical constraints, dependencies, acceptance criteria, verification, workspace ownership and handoff destination explicitly; children may receive no parent history.
