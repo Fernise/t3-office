@@ -71,7 +71,7 @@ Statuses: Backlog, Ready, In Progress, Review, Done, Blocked. Done requires veri
 
 All completed work is integrated locally on branch feat/collaborative-building in the project root checkout. A local milestone commit records the baseline and implementation; use git log for its exact SHA. No changes have been pushed and no application has been publicly deployed.
 
-Final verification: npm test (12 passed), npm run build (TypeScript and client bundle passed), npm run test:e2e (two-user consent/rendering/status/pause/revocation/logout race, private API/SQLite isolation, mobile and German checks passed). Runtime screenshots inspected from synthetic data. Local CI configuration exists but remote CI has not run. Fresh-harness instruction auto-loading, actual private T3 publishing and a public production environment remain unverified.
+Initial milestone verification (superseded by OFF-008/009/010 below): npm test (12 passed), npm run build (TypeScript and client bundle passed), npm run test:e2e (two-user consent/rendering/status/pause/revocation/logout race, private API/SQLite isolation, mobile and German checks passed). Runtime screenshots inspected from synthetic data. Local CI configuration exists but remote CI has not run. Fresh-harness instruction auto-loading, actual private T3 publishing and a public production environment remain unverified.
 
 ## Handoff format
 
@@ -97,3 +97,15 @@ For substantial work record: objective; completed work; files; branch/worktree; 
 - Branch/worktree: feat/collaborative-building, project root. Integrated locally; not pushed or deployed.
 - Limitation: The user's exact figures/time ranges are still missing, so complete numerical reconciliation is not claimed. Provider-wide detail and today's completed-T3-turn receipt remain different scopes; API cost is an estimate.
 - Next action: Reload the local office and compare matching detail ranges/timezone/refresh states. Report the now-confirmed cache/parser/receipt bugs to upstream only if explicitly instructed to send a report.
+
+## OFF-010 — Elevator, sharing visibility and room customization
+
+- Priority/owner/status: P1 / HQ / Done.
+- Scope: User-approved improvements 5, 7 and 10: optional elevator floor selector, explicit audience/scope/freshness controls and original/focus/lounge furniture presets with theme and lighting choices. Original office remains home.
+- Dependencies: OFF-008/009. No conflicting active file ownership found; implemented directly because menu, renderer and consent contract overlap.
+- Acceptance: Only authorized floors appear; visiting has a one-click home action; owners see guests and scope plus snapshot freshness; local style survives reload; authorized activity guests render saved owner style, presence guests cannot read it; original theme/layout defaults retained.
+- Verification: npm test passed 24 tests; npm run build passed TypeScript and production bundling. npm run test:e2e passed full synthetic browser checks for style persistence, actual lounge/focus furniture, host-style rendering, current-floor/home navigation, sharing audience, pause/revoke, mobile overflow and German entry. Final node scripts/menu-races.mjs passed added late-style-save/logout and pagehide/pending-start regressions; final build passed. Synthetic desktop/mobile screenshots inspected. A large WebGL screenshot timeout was resolved with smaller test viewports; an intermediate HMR navigation interruption was resolved by rerunning without concurrent source edits. No remaining check failures.
+- Files/artifacts: src/appearance.ts and roomstyle.ts; menu, localization, styles, main/shared source; building API and consent regression; browser scripts; README and project records.
+- Decisions/limitations: Furniture presets use established geometry/navigation; no freeform furniture editor or continuous 3D elevator travel. Local preferences are browser-scoped; account saves publish room style to authorized activity guests. Applying style reloads and ends browser publishing; pagehide now invalidates pending starts. Access lists are grants, not active viewers.
+- Workspace/integration: feat/collaborative-building, project root; integrated locally. No push, public deployment or private-data use.
+- Next action: Try Friends → Elevator, Sharing, and Office style with a second participant using synthetic activity; OFF-007 remains the release/trial follow-up.
