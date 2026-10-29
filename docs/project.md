@@ -18,7 +18,7 @@ Implemented locally:
 - Persistent local character names and work-area categories, with explicit optional sharing and owner-controlled shared profile overrides.
 - English/German shell, responsive layout, permission/concurrency tests and browser acceptance checks.
 
-Not implemented: a freely explorable 3D exterior, human avatars/chat, remote agent control, account recovery, managed hosting, production TLS/proxy configuration or operational monitoring. Real private T3 data has not been used for development verification.
+Not implemented: a walkable exterior/city, human avatars/chat, remote agent control, account recovery, managed hosting, production TLS/proxy configuration or operational monitoring. Real private T3 data has not been used for development verification.
 
 ## Product and architecture decisions
 
@@ -55,7 +55,7 @@ Native same-provider agents were used for a bounded backend implementation and i
 
 1. Run the app with two real participants using synthetic sharing first and collect usability feedback.
 2. Review release identity/hosting requirements before any public deployment.
-3. Evaluate cutaway/elevator timing, accessibility and navigation in the two-person trial.
+3. Evaluate whole-building navigation, floor focus, elevator timing and accessibility in the two-person trial.
 
 After the first user trial, simplify redundant process or split responsibilities only if recurring work warrants it.
 
@@ -97,3 +97,9 @@ The sharing contract now optionally includes validated, owner-chosen fictional c
 The user approved a short cutaway building transition: camera pullback, cabin doors closing, movement with a changing directory-floor indicator, arrival doors opening and camera entry into the destination office. Approximately 2.1 seconds of animation plus genuine network/renderer preparation. Skip and reduced motion bypass motion, while destination readiness and authorization remain mandatory. Main office rendering and HUD remain the default home.
 
 The artwork uses only the authorized floor directory, capped at six illustrated rows while retaining the trip endpoints. These are stylized furniture thumbnails, not live video or exact office layouts. Presence-only rows show no interior furniture/agents; inaccessible floors are omitted. Access is revalidated after moving and again by the shared source. Failed trips clear artwork and let the user return. Arrival continuity stores only same-page path, timestamp and motion choice in session storage, never office contents, names or credentials. History restoration cancels old travel; long loading offers an escape. The simulated-building banner uses the same travel flow.
+
+## Persistent whole-building UI (2026-10-29)
+
+The user clarified that the primary building experience is a persistent interactive place to navigate, beyond a travel animation. Add an optional full-screen Three.js cutaway building reached by a prominent Building view button, the friends menu or ?building=1. Click actual floor geometry, labels or the directory to focus an office; focus isolates that floor, exposes permitted metadata and offers Enter. Whole building restores the stack, and Back closes it while preserving the original own-office scene. Original home remains available without an account.
+
+Use one overview renderer for every visible floor and pause the underlying office render loop while it is open. Dispose its GPU context/resources on close. The personal building contains only owned/granted floors; presence-only rooms are opaque and expose no furniture or activity. API failure clears stale scenes/details, logout falls back to the local own-floor view, and entry reuses revalidated travel. These are stylized previews from consented metadata, not live office video or exact copies. Very tall directories show 24 modelled floors at a time; the complete directory can focus any authorized floor. New demo route /preview/building opens this view directly in the isolated simulation.
