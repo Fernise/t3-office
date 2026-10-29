@@ -18,7 +18,7 @@ Implemented locally:
 - Persistent local character names and work-area categories, with explicit optional sharing and owner-controlled shared profile overrides.
 - English/German shell, responsive layout, permission/concurrency tests and browser acceptance checks.
 
-Not implemented: continuous 3D exterior/elevator animation, human avatars/chat, remote agent control, account recovery, managed hosting, production TLS/proxy configuration or operational monitoring. Real private T3 data has not been used for development verification.
+Not implemented: a freely explorable 3D exterior, human avatars/chat, remote agent control, account recovery, managed hosting, production TLS/proxy configuration or operational monitoring. Real private T3 data has not been used for development verification.
 
 ## Product and architecture decisions
 
@@ -55,7 +55,7 @@ Native same-provider agents were used for a bounded backend implementation and i
 
 1. Run the app with two real participants using synthetic sharing first and collect usability feedback.
 2. Review release identity/hosting requirements before any public deployment.
-3. Consider a richer building/elevator transition after validating consent, publishing and navigation.
+3. Evaluate cutaway/elevator timing, accessibility and navigation in the two-person trial.
 
 After the first user trial, simplify redundant process or split responsibilities only if recurring work warrants it.
 
@@ -80,7 +80,7 @@ Verification: ten new synthetic accounting regressions plus the prior thirteen A
 
 ## Elevator, sharing visibility and room styles (2026-10-29)
 
-User approved improvements 5, 7 and 10. Keep the original office as home; add an optional elevator selector within Friends, showing only authorized floors and a current-location marker. Floor numbers are directory positions, not stable globally assigned addresses. Visiting has a persistent return-home button. Continuous 3D elevator travel remains deferred.
+User approved improvements 5, 7 and 10. Keep the original office as home; add an optional elevator selector within Friends, showing only authorized floors and a current-location marker. Floor numbers are directory positions, not stable globally assigned addresses. Visiting has a persistent return-home button. The initial selector is extended by the animated cutaway transition below.
 
 Sharing controls distinguish browser publishing from server snapshot freshness, show explicit per-guest scope and revocation, and explain the 45-second offline threshold. Access lists are permissions, not live visitor telemetry. Failed refreshes mark access/freshness unavailable instead of presenting stale details as current.
 
@@ -91,3 +91,9 @@ Office style uses the existing four themes with Original/Focus/Lounge furniture 
 User requested direct character selection rather than menu-based renaming. Clicking an owned coworker opens the existing side sheet on Customize; the menu's character picker routes to the same editor. Keep overview/transcript tabs. Names, work areas and bounded appearance choices persist in the existing local profile key and apply to the live character without restarting the office. Preserve position, scale, backpack state and shared materials when replacing geometry. Unsaved input survives periodic inspector refreshes; office shortcuts ignore active form fields. Visitors have no customization editor for host characters.
 
 The sharing contract now optionally includes validated, owner-chosen fictional character appearance (hairstyle, outfit, skin/hair/clothing palette choices and glasses). Local appearance stays private until explicit publishing, follows the same activity grant and revocation boundaries as names/areas, and is never included for presence-only visitors. Store styles separately from activity heartbeats; legacy name/area writes preserve styles. No arbitrary URLs/assets or work information are accepted as appearance. This is browser-scoped customization, not modification of actual agent identities or T3 thread names.
+
+## Animated elevator transition (2026-10-29)
+
+The user approved a short cutaway building transition: camera pullback, cabin doors closing, movement with a changing directory-floor indicator, arrival doors opening and camera entry into the destination office. Approximately 2.1 seconds of animation plus genuine network/renderer preparation. Skip and reduced motion bypass motion, while destination readiness and authorization remain mandatory. Main office rendering and HUD remain the default home.
+
+The artwork uses only the authorized floor directory, capped at six illustrated rows while retaining the trip endpoints. These are stylized furniture thumbnails, not live video or exact office layouts. Presence-only rows show no interior furniture/agents; inaccessible floors are omitted. Access is revalidated after moving and again by the shared source. Failed trips clear artwork and let the user return. Arrival continuity stores only same-page path, timestamp and motion choice in session storage, never office contents, names or credentials. History restoration cancels old travel; long loading offers an escape. The simulated-building banner uses the same travel flow.
