@@ -109,3 +109,13 @@ For substantial work record: objective; completed work; files; branch/worktree; 
 - Decisions/limitations: Furniture presets use established geometry/navigation; no freeform furniture editor or continuous 3D elevator travel. Local preferences are browser-scoped; account saves publish room style to authorized activity guests. Applying style reloads and ends browser publishing; pagehide now invalidates pending starts. Access lists are grants, not active viewers.
 - Workspace/integration: feat/collaborative-building, project root; integrated locally. No push, public deployment or private-data use.
 - Next action: Try Friends → Elevator, Sharing, and Office style with a second participant using synthetic activity; OFF-007 remains the release/trial follow-up.
+
+## OFF-011 — Run an isolated simulated friend
+
+- Priority/owner/status: P1 / HQ / Done.
+- Objective/scope: User requested seeing another player. Add a reusable local-only demo launcher, without modifying production authentication or normal office data.
+- Completed: Synthetic visitor and Maya accounts, seeded/accepted activity invitation, eight named agents with areas and eight-second rotating publication, warm lounge appearance, elevator/home flow and visible simulation banner. Auto-login exists only in the disposable launcher. Host canonicalization keeps demo cookies on 127.0.0.1 and normal office cookies on localhost.
+- Files: scripts/friend-preview.mjs, package.json, README.md and this handoff.
+- Verification: node --check scripts/friend-preview.mjs and git diff --check passed. node scripts/friend-preview.mjs --check-browser passed live API checks, anonymous denial, disabled private endpoint, localhost redirect without cookies, changing statuses, style persistence and real browser visit/elevator/home flow with no page errors. Initial test assertion corrected to account for consecutive running states and the original demo's extra intern.
+- Workspace/integration: feat/collaborative-building, project root; local only, no push or deployment. No real T3 data, third-party accounts or credentials used.
+- Limitations/next action: A synthetic two-player preview, not a real networked human trial. Run npm run demo:friends and visit the displayed preview links; clean shutdown deletes the temporary database.
