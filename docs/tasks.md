@@ -132,6 +132,8 @@ For substantial work record: objective; completed work; files; branch/worktree; 
 - Decisions/limitations: Browser-local profiles remain compatible with old names/areas. Style edits are display preferences and do not rename actual T3 threads or control agents. Bounded palettes avoid arbitrary assets/colors and unbounded material allocations. Activity sharing adds fictional appearance only after explicit publishing; presence guests receive no characters. Original overview/thread tabs remain intact. No new account recovery or cross-device preference sync.
 - Branch/integration: feat/collaborative-building, project root; integrated locally, not pushed/deployed. Next: refresh the office or demo own-floor page and click a coworker; the normal two-person usability trial remains OFF-007.
 
+- Follow-up (2026-10-30, HQ): Successful Save character now closes the customization sheet, resets the camera to the office overview and shows the original confirmation toast. Reopening during the return animation works. Updated the existing browser regression for both name and appearance saves; npm run build and node scripts/smoke.mjs passed, including persistence and shared-visitor checks. Changes integrated locally on feat/collaborative-building; no push/deployment.
+
 ## OFF-013 — Animated building and elevator travel
 
 - Priority/owner/status: P1 / HQ / Done.
