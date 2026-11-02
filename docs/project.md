@@ -212,3 +212,6 @@ A useful iteration is read → select → specify/route → implement → verify
 
 
 OFF-026 local configuration update: user-confirmed GitHub app registration enables preparing the localhost trial. Explicit OFFICE_GITHUB_LOGIN=1 now supplies the broker via the server-only bounded private-file loader; default startup remains disabled and build mode does not read credentials. Registered callback is fixed to localhost:5173. T3 private secret delivery returned Authentication required, so no actual credentials were accepted and no real login/provider traffic occurred. The local configuration slice is tested; full OFF-026 remains blocked on secure delivery and manual real consent.
+
+
+OFF-026 activation follow-up: secure input succeeded after restart; user-provided GitHub credentials are configured in the ignored owner-only local file, and the localhost:5173 development service reports GitHub enabled. Live HTTP checks confirmed credentials remain inaccessible and private T3 routes disabled. No real OAuth exchange has been performed by the agent; user consent/login remains pending. Historical Authentication required notes describe the earlier resolved blocker.
