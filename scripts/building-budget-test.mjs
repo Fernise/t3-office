@@ -37,9 +37,18 @@ try{
  assert.ok(stats.lights<=12,`Light count ${stats.lights} must stay small and fixed`);
  assert.deepEqual(stats.presenceInterior,presenceIds.map(()=>0),'Presence-only floors stay opaque blocks');
  // Focusing a floor hides the rest.
- await page.locator('.building-world-labels button').nth(2).click();await page.waitForFunction(()=>document.querySelector('.building-world').dataset.selectedFloor);
+ await page.locator('.building-world-labels button').nth(2).click();await page.waitForFunction(()=>document.querySelector('.building-world').dataset.selectedFloor);await page.waitForFunction(()=>!window.__buildingView.moving(),null,{timeout:20000});
  const focused=await page.evaluate(()=>{let n=0;window.__buildingView.models.traverse(o=>{if(!o.isMesh)return;for(let c=o;c;c=c.parent)if(!c.visible)return;n++;});return n;});
  assert.ok(focused<=90,`Focused floor draws ${focused} (budget 90)`);
+ // Smooth transitions: during a change other floors stay visible and slide; at rest they are hidden or back in place.
+ const pose=()=>page.evaluate(()=>{const v=window.__buildingView,sel=v.selected();const floors=v.models.children.filter(o=>o.userData.floorId);return{moving:v.moving(),selected:sel,others:floors.filter(o=>o.userData.floorId!==sel).map(o=>({visible:o.visible,dy:+(o.position.y-o.userData.baseY).toFixed(2)})),selectedDy:sel?+(floors.find(o=>o.userData.floorId===sel).position.y-floors.find(o=>o.userData.floorId===sel).userData.baseY).toFixed(2):0};});
+ await page.getByRole('button',{name:'Whole building',exact:true}).click();await page.waitForTimeout(250);let mid=await pose();
+ assert.ok(mid.moving&&mid.others.every(o=>o.visible)&&mid.others.some(o=>Math.abs(o.dy)>.1&&Math.abs(o.dy)<38),'Closing the building slides floors back while they are visible');
+ await page.waitForFunction(()=>!window.__buildingView.moving(),null,{timeout:20000});let rest=await pose();assert.ok(rest.others.every(o=>o.visible&&o.dy===0),'Whole building at rest: every floor visible and in place');
+ await page.locator('.building-world-labels button').nth(5).click();await page.waitForTimeout(250);mid=await pose();
+ assert.ok(mid.moving&&mid.others.every(o=>o.visible)&&mid.others.some(o=>Math.abs(o.dy)>.1&&Math.abs(o.dy)<38),'Choosing a floor splits the building open gradually');
+ await page.waitForFunction(()=>!window.__buildingView.moving(),null,{timeout:20000});rest=await pose();
+ assert.ok(rest.others.every(o=>!o.visible&&Math.abs(o.dy)===38)&&rest.selectedDy===0,'Focused at rest: other floors moved away and hidden, chosen floor in place');
  assert.deepEqual(errors,[]);
- console.log(`PASS: realistic building budget: ${FLOORS} real floors in ${stats.draws} draws (max ${stats.maxPerFloor}/floor, focused ${focused}), ${stats.sharedMeshes} meshes share baked copies, ${stats.lights} lights, presence floors opaque.`);
+ console.log(`PASS: realistic building budget: ${FLOORS} real floors in ${stats.draws} draws (max ${stats.maxPerFloor}/floor, focused ${focused}), ${stats.sharedMeshes} meshes share baked copies, ${stats.lights} lights, presence floors opaque, eased split/assemble transitions.`);
 }finally{await browser?.close();await server.close();await rm(dir,{recursive:true,force:true});}
