@@ -215,3 +215,6 @@ OFF-026 local configuration update: user-confirmed GitHub app registration enabl
 
 
 OFF-026 activation follow-up: secure input succeeded after restart; user-provided GitHub credentials are configured in the ignored owner-only local file, and the localhost:5173 development service reports GitHub enabled. Live HTTP checks confirmed credentials remain inaccessible and private T3 routes disabled. No real OAuth exchange has been performed by the agent; user consent/login remains pending. Historical Authentication required notes describe the earlier resolved blocker.
+
+
+OFF-025: First local Worker/D1 accounts/session/invitation/grant slice implemented independently in cloud/. D1 transactional batches and first-primary sessions replace synchronous transaction assumptions for that slice; existing scrypt/account contracts retained. It is explicitly loopback-only with no frontend switch or automatic data migration. Miniflare/workerd tests use synthetic disposable state; dev-tool dependencies are pinned. Real local GitHub login checks were completed by the user (OFF-026); this does not verify cloud OAuth. See identity-cloud.md for commands, verified boundaries and remaining integration.
