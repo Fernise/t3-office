@@ -53,12 +53,16 @@ try{
  const floorsSeen=bp.waitForResponse(r=>r.url().endsWith('/api/building/floors')&&r.ok(),{timeout:60000});await bp.goto(base+'?building=1&weather=clear');await bp.waitForFunction(()=>window.__ready,{},{timeout:90000});await floorsSeen;await bp.screenshot({path:'shots/cloud-ui-building.png',timeout:60000});
  // Exercise the real main.ts render host and smooth camera hand-off in the production bundle.
  await bp.locator('.building-world[data-rendered=true]').waitFor();
- await bp.getByRole('button',{name:'Floors',exact:true}).click();
- await bp.locator(`.building-world-directory [data-floor="${floors.find(f=>f.isOwner).id}"]`).click();
+ await bp.locator(`.building-world-labels [data-floor="${floors.find(f=>f.isOwner).id}"]`).click();
  await bp.emulateMedia({reducedMotion:'no-preference'});const enteredAt=Date.now();await bp.locator('[data-action=enter]').click();
  await bp.locator('.building-world.diving').waitFor();await bp.locator('.building-world').waitFor({state:'detached',timeout:10000});
  assert.ok(Date.now()-enteredAt>=1150,'Production office entry eases through the live render host');
- assert.equal(await bp.locator('body.building-view-open').count(),0);assert.equal(await bp.locator('.elevator-overlay').count(),0);await bp.close();
+ assert.equal(await bp.locator('body.building-view-open').count(),0);assert.equal(await bp.locator('.elevator-overlay').count(),0);
+ await bp.locator('.office-building-launcher').click();
+ await bp.waitForFunction(id=>document.querySelector('.building-world')?.dataset.selectedFloor===id,floors.find(f=>f.isOwner).id);
+ await bp.waitForTimeout(1600);
+ const ownLabel=bp.locator(`.building-world-labels [data-floor="${floors.find(f=>f.isOwner).id}"]`);
+ assert.equal(await ownLabel.evaluate(el=>{const r=el.getBoundingClientRect();return document.elementFromPoint(r.left+r.width/2,r.top+r.height/2)===el;}),true,'Restored floor label remains clear of the real HUD');await bp.close();
 
  // Owner revokes; the guest's live visit ends and the floor disappears.
  const grant=(await call(owner,'/grants')).grants.find(g=>g.userHandle==='cloud_guest');await call(owner,'/grants/'+grant.id,{},'DELETE');

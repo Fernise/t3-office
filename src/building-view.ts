@@ -1,3 +1,4 @@
+import { placeLabel, type Rect } from './building-labels';
 import { addFloorIdentity } from './floor-identity';
 import { PixelPipeline } from './pixel';
 import { THEMES, type Theme } from './themes';
@@ -16,6 +17,15 @@ import './building-view.css';
 const T = locale({ en: { title: 'The Building', floors: 'Floors', hint: 'Click a floor to focus. Drag to turn the building.', all: 'Whole building', close: 'Back to office', friends: 'Friends & invitations', enter: 'Enter this office', choose: 'Pick a floor', chooseHint: 'Every office is a place you can visit. Select one in the building or directory to look closer.', privacy: 'Only your office and floors shared with you appear here.', own: 'Your office', home: 'Home floor', presence: 'Presence only · interior private', active: 'Activity shared', ownerScope: 'Your office · invited access only', moment: 'Owner-published moment', offline: 'Offline', online: 'Online', agents: 'coworkers', loading: 'Opening your building…', error: 'Building unavailable. Floor details have been cleared.', retry: 'Try again', local: 'Your office works without an account. Invite friends from the in-office menu to add their floors.', focus: 'Floor focus', count: 'offices', limited: 'The 3D view shows a section of this tall building. Choose any office in the directory.', preview: 'Stylized office previews · no tasks or transcripts' }, de: { title: 'Das Gebäude', floors: 'Etagen', hint: 'Etage zum Fokussieren anklicken. Ziehen zum Drehen.', all: 'Ganzes Gebäude', close: 'Zurück zum Büro', friends: 'Freunde & Einladungen', enter: 'Dieses Büro betreten', choose: 'Wähle eine Etage', chooseHint: 'Wähle ein Büro im Gebäude oder Verzeichnis, um es näher anzusehen.', privacy: 'Nur dein Büro und mit dir geteilte Etagen erscheinen hier.', own: 'Dein Büro', home: 'Eigene Etage', presence: 'Nur Anwesenheit · Innenraum privat', active: 'Aktivität geteilt', ownerScope: 'Dein Büro · nur eingeladener Zugriff', moment: 'Vom Besitzer veröffentlichter Moment', offline: 'Offline', online: 'Online', agents: 'Kollegen', loading: 'Dein Gebäude wird geöffnet…', error: 'Gebäude nicht verfügbar. Etageninformationen wurden entfernt.', retry: 'Erneut versuchen', local: 'Dein Büro funktioniert ohne Konto. Lade über das Büromenü Freunde ein, um ihre Etagen hinzuzufügen.', focus: 'Etagenansicht', count: 'Büros', limited: 'Die 3D-Ansicht zeigt einen Abschnitt dieses hohen Gebäudes. Wähle jedes Büro im Verzeichnis.', preview: 'Stilisierte Büroansichten · keine Aufgaben oder Gespräche' } });
 const esc = (v: string) => v.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
 let closeCurrent: (() => void) | undefined;
+const RETURN_KEY = 'office.building-return.v1';
+interface ReturnView { id: string; scope: Floor['scope']; at: number; target: number[]; half: number; yaw: number; zoom: number }
+function readReturn(): ReturnView | undefined {
+  try {
+    const v = JSON.parse(sessionStorage.getItem(RETURN_KEY) ?? 'null');
+    if (v && typeof v.id === 'string' && ['owner', 'activity', 'presence'].includes(v.scope) && Number.isFinite(v.at) && Date.now() >= v.at && Date.now() - v.at < 1800000 && Array.isArray(v.target) && v.target.length === 3 && v.target.every((n: unknown) => typeof n === 'number' && Number.isFinite(n) && Math.abs(n) < 10000) && [v.half, v.yaw, v.zoom].every(Number.isFinite) && v.half > 0 && v.half < 1000 && Math.abs(v.yaw) < 100 && v.zoom >= .65 && v.zoom <= 1.6) return v;
+  } catch { /* storage unavailable */ }
+}
+
 export interface BuildingRenderHost {
   canvas: HTMLCanvasElement;
   theme: Theme;
@@ -28,9 +38,10 @@ export interface BuildingRenderHost {
 }
 export async function openBuildingView(openFriends: () => void, host?: BuildingRenderHost) {
   if (closeCurrent) return;
+  let returnView = readReturn();
   const previous = document.activeElement as HTMLElement | null;
   const root = document.createElement('section'); root.className = 'building-world'; root.setAttribute('role', 'dialog'); root.setAttribute('aria-modal', 'true'); root.setAttribute('aria-label', T.title);
-  root.innerHTML = `<header><div><small>T3 OFFICE</small><h1>${T.title}</h1><p>${T.hint}</p></div><nav><button data-action="all">${T.all}</button><button data-action="directory">${T.floors}</button><button data-action="close">${T.close} ×</button></nav></header><div class="building-world-stage"><canvas aria-label="${T.title}"></canvas><div class="building-world-labels"></div><p class="building-world-caption">${T.preview}</p></div><aside><p class="building-world-status" role="status" aria-live="polite">${T.loading}</p><div class="building-world-detail"></div><h2>${T.all}</h2><p class="building-world-privacy">${T.privacy}</p><div class="building-world-directory"></div><button class="building-world-invite" data-action="friends">${T.friends}</button></aside>`;
+  root.innerHTML = `<header><div><small>T3 OFFICE</small><h1>${T.title}</h1><p>${T.hint}</p></div><nav><button data-action="all">${T.all}</button><button data-action="directory">${T.floors}</button><button data-action="close">${T.close} ×</button></nav></header><div class="building-world-stage"><canvas aria-label="${T.title}"></canvas><svg class="building-world-leaders" aria-hidden="true"></svg><div class="building-world-labels"></div><p class="building-world-caption">${T.preview}</p></div><aside><p class="building-world-status" role="status" aria-live="polite">${T.loading}</p><div class="building-world-detail"></div><h2>${T.all}</h2><p class="building-world-privacy">${T.privacy}</p><div class="building-world-directory"></div><button class="building-world-invite" data-action="friends">${T.friends}</button></aside>`;
   document.body.append(root); document.body.classList.add('building-view-open');
   let closed = false; let raf = 0; let poll: ReturnType<typeof setInterval> | undefined;
   let floors: Floor[] = []; let selected: string | null = null; let busy = false; let signature = ''; let windowStart = 0;
@@ -42,6 +53,7 @@ export async function openBuildingView(openFriends: () => void, host?: BuildingR
   if (originalHud && hudMarker) { originalHud.before(hudMarker); root.append(originalHud); }
   const status = root.querySelector<HTMLElement>('.building-world-status')!;
   const labelLayer = root.querySelector<HTMLElement>('.building-world-labels')!;
+  const leaderLayer = root.querySelector<SVGSVGElement>('.building-world-leaders')!;
   const directory = root.querySelector<HTMLElement>('.building-world-directory')!;
   const detail = root.querySelector<HTMLElement>('.building-world-detail')!;
   const theme = host?.theme ?? THEMES.find(t => t.id === settings.get('theme')) ?? THEMES[0];
@@ -72,9 +84,9 @@ export async function openBuildingView(openFriends: () => void, host?: BuildingR
   // (floors above rise, everything below sinks) and closes again for the whole view. Off-screen parts are hidden once still.
   const DURATION = 1100, INTRO = 1500, SPLIT = 38;
   const ease = (p: number) => p < .5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2;
-  const tween = { t0: 0, dur: 0, done: true, snap: false, waitForBakes: false, fromYaw: .5, fromEl: EL, toYaw: .5, toEl: EL, dive: undefined as undefined | (() => void), from: new THREE.Vector3(), fromHalf: 12, fromShift: 0 };
+  const tween = { t0: 0, dur: 0, done: true, snap: false, waitForBakes: false, angles: false, fromYaw: .5, fromEl: EL, toYaw: .5, toEl: EL, dive: undefined as undefined | (() => void), from: new THREE.Vector3(), fromHalf: 12, fromShift: 0 };
   function startTween(instant: boolean, duration = DURATION) {
-    tween.from.copy(target); tween.fromHalf = half; tween.fromShift = shift; tween.fromYaw = yaw; tween.fromEl = el; tween.toYaw = goalYaw; tween.toEl = EL; tween.dive = undefined;
+    tween.from.copy(target); tween.fromHalf = half; tween.fromShift = shift; tween.fromYaw = yaw; tween.fromEl = el; tween.toYaw = goalYaw; tween.toEl = EL; tween.dive = undefined; tween.angles = false;
     for (const o of models.children) o.userData.fromOff = o.userData.off ?? 0;
     const still = instant || motion.matches; tween.dur = still ? 0 : duration; tween.t0 = performance.now(); tween.done = false; tween.snap = still; tween.waitForBakes = false;
     if (!selected || !still) for (const o of models.children) o.visible = true;
@@ -84,6 +96,7 @@ export async function openBuildingView(openFriends: () => void, host?: BuildingR
    * to the office is not a cut. Without a live office (or with reduced motion) it hands off at once.
    */
   function dive(id: string, done: () => void) {
+    rememberView();
     const live = host?.view?.(); const y = rowY.get(id);
     root.classList.add('diving'); root.tabIndex = -1; root.focus();
     for (const controls of root.querySelectorAll<HTMLElement>('header, aside, .building-world-labels')) controls.inert = true;
@@ -91,7 +104,12 @@ export async function openBuildingView(openFriends: () => void, host?: BuildingR
     root.dataset.directoryOpen = 'false'; root.dataset.controlsOpen = 'false'; zoom = 1;
     for (const ring of rings.values()) ring.visible = false;
     wanted.set(live.target.x - CX, live.target.y + y, live.target.z); needV = live.half; needH = 0;
-    startTween(false, 1250); tween.toYaw = goalYaw = live.az; tween.toEl = live.el; tween.dive = done;
+    startTween(false, 1250); tween.angles = true; tween.toYaw = goalYaw = live.az; tween.toEl = live.el; tween.dive = done;
+  }
+  function rememberView() {
+    const f = floors.find(f => f.id === selected); if (!f) return;
+    const v: ReturnView = { id: f.id, scope: f.scope, at: Date.now(), target: [target.x, target.y - (rowY.get(f.id) ?? 0), target.z], half, yaw, zoom };
+    try { sessionStorage.setItem(RETURN_KEY, JSON.stringify(v)); } catch { /* optional camera memory */ }
   }
   function cancelDive() {
     if (!root.classList.contains('diving')) return;
@@ -151,7 +169,8 @@ export async function openBuildingView(openFriends: () => void, host?: BuildingR
     cabinTarget = rowY.get(id) ?? 0; split(id); startTween(instant); paintSelection(); if (resetScroll) root.querySelector('aside')!.scrollTop = 0;
   }
   function build(intro = false) {
-    identityDisposals.splice(0).forEach(dispose=>dispose()); pending.length = 0; models.clear(); momentLamps.length = 0; rings.clear(); rowY.clear(); floorLook.clear(); labelLayer.replaceChildren();
+    identityDisposals.splice(0).forEach(dispose=>dispose()); pending.length = 0; models.clear(); momentLamps.length = 0; rings.clear(); rowY.clear(); floorLook.clear(); labelLayer.replaceChildren(); leaderLayer.replaceChildren();
+    if (intro && returnView) { const index = floors.findIndex(f => f.id === returnView!.id && f.scope === returnView!.scope); if (index >= 24) windowStart = Math.max(0, index - 10); }
     const shown = floors.slice(windowStart, windowStart + 24); const total = shown.length * STOREY;
     // Street, plinth and lobby sized to the real footprint; trees anchor the corners.
     box(models, theme.slab, 0, -1.9, 2, W + 26, .5, D + 22).userData.part = 'base';
@@ -186,7 +205,7 @@ export async function openBuildingView(openFriends: () => void, host?: BuildingR
       // Status strip along the street side: green while the office is online.
       box(group, f.online ? '#8dcba4' : '#bdac83', CX, -.3, maxZ + .5, W + .8, .14, .2);
       const ring = new THREE.LineSegments(edges, ringMaterial); ring.scale.set(W + 1.2, ROOM_H + .9, D + 1.2); ring.position.set(CX, ROOM_H / 2 - .2, 0); ring.visible = false; group.add(ring); rings.set(f.id, ring);
-      const label = document.createElement('button'); label.dataset.floor = f.id; label.textContent = (f.moment && f.scope !== 'presence' ? '★ ' : '') + (f.isOwner ? `${T.home} · ${f.name}` : `${windowStart + i + 1} · ${f.name}`); labelLayer.append(label);
+      const label = document.createElement('button'); label.dataset.floor = f.id; label.textContent = (f.moment && f.scope !== 'presence' ? '★ ' : '') + (f.isOwner ? `${T.home} · ${f.name}` : `${windowStart + i + 1} · ${f.name}`); label.title = label.textContent ?? ''; labelLayer.append(label);
     });
     // Cutaway roof over the back third leaves the front of the top office visible; the elevator shaft runs up the east side.
     box(models, '#899a8c', 0, total - .45, -D / 3, W + .8, .4, D / 3 + .8).userData.part = 'top'; box(models, '#657b75', -W / 4, total - .05, -D / 3, 2.4, .8, 1.6).userData.part = 'top';
@@ -196,14 +215,32 @@ export async function openBuildingView(openFriends: () => void, host?: BuildingR
     box(models, '#4a625d', W / 2 + 1.3, total - .1, -D / 4, 2.2, .4, D / 2 + .4);
     directory.innerHTML = [...floors].reverse().map((f, n) => `<button data-floor="${esc(f.id)}"><span>${f.isOwner ? T.home : floors.length - n}</span><div><b>${esc(f.name)}</b><small>${f.online ? T.online : T.offline}${f.scope === 'presence' ? ` · ${T.presence}` : ''}</small></div></button>`).join('');
     for (const o of models.children) { o.userData.baseY = o.position.y; o.userData.off = o.userData.fromOff = o.userData.toOff = 0; }
+    if (intro && returnView) {
+      const saved = returnView; returnView = undefined;
+      // A remembered id is only camera metadata: the fresh authorized directory owns access and scope.
+      if (floors.some(f => f.id === saved.id && f.scope === saved.scope) && rowY.has(saved.id)) {
+        selected = saved.id; const y = rowY.get(saved.id)!; split(selected);
+        for (const o of models.children) { o.userData.off = o.userData.toOff; if (o !== cabin) o.position.y = o.userData.baseY + o.userData.off; }
+        const live = host?.view?.();
+        target.set(live ? live.target.x - CX : saved.target[0], live ? live.target.y + y : saved.target[1] + y, live ? live.target.z : saved.target[2]);
+        half = live?.half ?? saved.half; yaw = live?.az ?? saved.yaw; el = live?.el ?? EL; shift = 0;
+        wanted.set(saved.target[0], saved.target[1] + y, saved.target[2]); zoom = saved.zoom; needV = saved.half / zoom; needH = 0; goalYaw = saved.yaw; placeLamps(y);
+        startTween(!live, 1250); tween.toYaw = saved.yaw; tween.toEl = EL; tween.angles = true; tween.waitForBakes = true;
+        paintSelection(); return;
+      }
+      try { sessionStorage.removeItem(RETURN_KEY); } catch { /* optional camera memory */ }
+    }
     if (intro && !motion.matches) {
       // Open close on your own floor, then pull back to the whole building, as if stepping out of the office.
       // Start like a focused view of your floor with the rest of the building split away; it then assembles around you.
-      const ownId = floors.find(f => f.isOwner)?.id ?? null, own = ownId ? rowY.get(ownId) ?? 0 : 0;
+      const params = new URLSearchParams(location.search); const currentId = params.get('source') === 'shared' ? params.get('floor') : floors.find(f => f.isOwner)?.id;
+      const ownId = floors.find(f => f.id === currentId)?.id ?? null, own = ownId ? rowY.get(ownId) ?? 0 : 0;
       if (ownId) { split(ownId); for (const o of models.children) { o.userData.off = o.userData.toOff; if (o !== cabin) o.position.y = o.userData.baseY + o.userData.off; } }
-      target.set(0, own + 1.6, 0); half = Math.max(9, 21 / Math.max(.3, width / height)); shift = 0;
+      const live = host?.view?.();
+      target.set(live ? live.target.x - CX : 0, own + (live?.target.y ?? 1.6), live?.target.z ?? 0); half = live?.half ?? Math.max(9, 21 / Math.max(.3, width / height)); shift = 0;
+      if (live) { yaw = live.az; el = live.el; }
     }
-    fit(false, !intro, INTRO); tween.waitForBakes = intro;
+    fit(false, !intro, INTRO); tween.angles = intro; tween.waitForBakes = intro;
   }
   async function refresh() {
     if (busy || closed) return; busy = true;
@@ -229,11 +266,11 @@ export async function openBuildingView(openFriends: () => void, host?: BuildingR
       }
       if (signature !== nextSignature) { const keep = selected; const hadFloors = signature !== ''; signature = nextSignature; if (windowStart >= next.length) windowStart = 0; build(!keep && !hadFloors); if (keep && next.some(f => f.id === keep)) select(keep, false, true); }
 
-    } catch { if (!closed) { cancelDive(); models.clear(); rings.clear(); floors = []; selected = null; signature = ''; canvas.hidden = true; labelLayer.replaceChildren(); directory.innerHTML = `<button data-action="retry">${T.retry}</button>`; detail.replaceChildren(); status.textContent = T.error; root.dataset.controlsOpen = 'true'; root.dataset.directoryOpen = 'true'; } }
+    } catch { if (!closed) { cancelDive(); models.clear(); rings.clear(); floors = []; selected = null; signature = ''; canvas.hidden = true; labelLayer.replaceChildren(); leaderLayer.replaceChildren(); directory.innerHTML = `<button data-action="retry">${T.retry}</button>`; detail.replaceChildren(); status.textContent = T.error; root.dataset.controlsOpen = 'true'; root.dataset.directoryOpen = 'true'; } }
     finally { busy = false; }
   }
   function close() {
-    if (closed) return; closed = true; closeCurrent = undefined; cancelAnimationFrame(raf); clearInterval(poll); observer.disconnect();
+    if (closed) return; if (!root.classList.contains('diving')) rememberView(); closed = true; closeCurrent = undefined; cancelAnimationFrame(raf); clearInterval(poll); observer.disconnect();
     window.removeEventListener('office-travel-cancel', cancelDive);
     window.removeEventListener('office-elevator-move', moveCabin); window.removeEventListener('office-building-close', close); window.removeEventListener('pagehide', close); window.removeEventListener('office-departure', fit);
     identityDisposals.splice(0).forEach(dispose=>dispose());
@@ -277,7 +314,7 @@ export async function openBuildingView(openFriends: () => void, host?: BuildingR
     const p = tween.dur ? Math.min(1, (now - tween.t0) / tween.dur) : 1, e = ease(p), moving = p < 1;
     if (!tween.done) target.lerpVectors(tween.from, wanted, e); else if (tween.snap) target.copy(wanted); else target.lerp(wanted, k);
     // Angle and tilt follow the tween during a dive (to the office view), otherwise the drag goal and the default tilt.
-    if (!tween.done && tween.dive) { yaw = tween.fromYaw + (tween.toYaw - tween.fromYaw) * e; el = tween.fromEl + (tween.toEl - tween.fromEl) * e; }
+    if (!tween.done && tween.angles) { yaw = tween.fromYaw + (tween.toYaw - tween.fromYaw) * e; el = tween.fromEl + (tween.toEl - tween.fromEl) * e; }
     else { yaw += (goalYaw - yaw) * k; if (!tween.dive) el += (EL - el) * k; }
     // With the side panel open on wide screens, centre the building in the space left of it.
     const aside = root.querySelector('aside'); const panel = root.dataset.controlsOpen === 'true' && width >= 900 && aside ? aside.getBoundingClientRect().width + 24 : 0;
@@ -303,7 +340,29 @@ export async function openBuildingView(openFriends: () => void, host?: BuildingR
     sun.position.copy(sunDir).multiplyScalar(90).add(target); sun.target.position.copy(target); sun.target.updateMatrixWorld();
     for (const {light,at} of momentLamps) { const age = Date.now() - at; light.intensity = !motion.matches && age >= 0 && age < 8000 ? 2 + Math.sin(age / 8000 * Math.PI) * 3 : 2; }
     if (host) host.render(scene, camera); else fallback!.render(scene, camera);
-    for (const label of labelLayer.querySelectorAll<HTMLElement>('button')) { const g = models.children.find(o => o.userData.floorId === label.dataset.floor); const y = g ? g.position.y : rowY.get(label.dataset.floor!) ?? 0; const p = new THREE.Vector3(-W / 2, y + 1.4, maxZ + .5).project(camera); label.style.left = `${Math.max(10, Math.min(width - 150, (p.x + 1) / 2 * width - 130))}px`; label.style.top = `${(1 - p.y) / 2 * height}px`; label.hidden = (!!selected && selected !== label.dataset.floor) || p.y < -.94 || p.y > .94; }
+    // Measure visible controls (including nested HUD panels), not the HUD's full-screen container.
+    const blocked: Rect[] = [];
+    for (const node of root.querySelectorAll<HTMLElement>('header, aside, #hud .panel, #hud button, #hud input, #hud select')) {
+      const style = getComputedStyle(node); const r = node.getBoundingClientRect();
+      if (style.visibility !== 'hidden' && style.display !== 'none' && +style.opacity > 0 && r.width && r.height) blocked.push(r);
+    }
+    const leaders: string[] = [];
+    for (const label of labelLayer.querySelectorAll<HTMLElement>('button')) {
+      const g = models.children.find(o => o.userData.floorId === label.dataset.floor);
+      const y = g ? g.position.y : rowY.get(label.dataset.floor!) ?? 0;
+      const p = new THREE.Vector3(-W / 2, y + 1.4, maxZ + .5).project(camera);
+      label.hidden = (!!selected && selected !== label.dataset.floor) || p.y < -.94 || p.y > .94;
+      if (label.hidden) continue;
+      const rect = placeLabel({ x: (p.x + 1) / 2 * width, y: (1 - p.y) / 2 * height }, label.offsetWidth, label.offsetHeight, { width, height }, blocked);
+      label.hidden = !rect;
+      if (rect) {
+        label.style.left = `${rect.left}px`; label.style.top = `${rect.top}px`; blocked.push(rect);
+        const ax = (p.x + 1) / 2 * width, ay = (1 - p.y) / 2 * height;
+        const lx = THREE.MathUtils.clamp(ax, rect.left, rect.left + rect.width), ly = THREE.MathUtils.clamp(ay, rect.top, rect.top + rect.height);
+        leaders.push(`<line x1="${lx}" y1="${ly}" x2="${ax}" y2="${ay}" />`);
+      }
+    }
+    leaderLayer.innerHTML = leaders.join('');
     root.dataset.rendered = 'true';
     // Render the exact landing pose before restoring the live office or starting its arrival fade.
     finishDive?.();
