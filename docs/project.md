@@ -159,4 +159,8 @@ OFF-021 replaces the focus/milestone-led primary tour with the actual first-frie
 
 The normal first-visit command is npm run dev, which leaves private T3 endpoints disabled and keeps local accounts across restarts. The optional npm run local companion remains available for explicit private local agent access. Disposable demo accounts still reset when that separate simulation stops.
 
-OFF-022 prepares a Web Crypto/Fetch GitHub protocol adapter and source-backed cloud migration brief in [identity-cloud.md](identity-cloud.md). This is not connected to account/session routes or live providers. Public deployment and OAuth application activation remain separate from this bounded local work.
+OFF-022 prepares a Web Crypto/Fetch GitHub protocol adapter and source-backed cloud migration brief in [identity-cloud.md](identity-cloud.md). The protocol foundation was initially unconnected; OFF-023 below adds gated local account/session integration. No live provider is configured. Public deployment and OAuth application activation remain separate from this bounded local work.
+
+## Gated local GitHub integration (2026-11-02, OFF-023)
+
+The OFF-022 protocol foundation is now connected to optional HTTP routes, a stable external-identity table and a native configured-provider sign-in/confirmation interface. The normal service has no injected broker, so GitHub remains unavailable by default. Callback only stages public identity; explicit confirmation rechecks current account state before transactional user/office mapping and session issuance. Existing local accounts are never linked or merged by username/email. Local sign-in/out invalidates unfinished provider proof. All tests use fake provider transport and intercepted browser redirects; real credentials, authorization and deployment remain outside this completed local slice. See identity-cloud.md for current endpoints, cookie/origin limits and activation gates.
