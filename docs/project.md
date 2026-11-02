@@ -162,3 +162,50 @@ OFF-022 prepares a Web Crypto/Fetch GitHub protocol adapter and source-backed cl
 ## Gated local GitHub integration (2026-11-02, OFF-023)
 
 The OFF-022 protocol foundation is now connected to optional HTTP routes, a stable external-identity table and a native configured-provider sign-in/confirmation interface. The normal service has no injected broker, so GitHub remains unavailable by default. Callback only stages public identity; explicit confirmation rechecks current account state before transactional user/office mapping and session issuance. Existing local accounts are never linked or merged by username/email. Local sign-in/out invalidates unfinished provider proof. All tests use fake provider transport and intercepted browser redirects; real credentials, authorization and deployment remain outside this completed local slice. See identity-cloud.md for current endpoints, cookie/origin limits and activation gates.
+
+
+## Adaptive APOS operation
+
+Policy update (2026-11-02, OFF-027): APOS_Master_Prompt_Updated_MultiProvider.md, supplied by the user; SHA-256 97582c93cef03d8233773461ccc080e2dac35d8e7391aad87b6a16e9183ef259. AGENTS.md contains the actionable shared rules; this section records policy deltas, capability evidence and session procedure. The source prompt is not copied into a parallel manual.
+
+Preserved: one existing HQ, combined product/architecture oversight, current tasks/owners/statuses, original office-first UX, consent/data boundaries, local-only release state and routine delegated leadership. Setup is already established; no Stage A/B reinitialization or new specialist topology. Safe documentation updates proceed within existing authorization. Generic new-setup approval language does not revoke the project's specific routine product/architecture/security implementation authority; consequential excluded actions still require authorization. New Ralph Loop sessions always require separate bounded approval, as the updated policy explicitly specifies. This update starts no development work or run.
+
+Changed/missing rules now integrated: joint model/effort/tool/authentication routing without a permanent roster; discovery refresh and duplicate-launch prevention; independent subscription/billing/quota checks; separate20% reserves where verifiable; approved fallback ceilings when unknown; optional bounded session activation, earliest-stop semantics and durable session closeout. Existing cross-provider handoffs are reinforced by explicit instruction-source checks and fresh Git/ownership inspection. Preserve only essential context; a new provider is not assumed to inherit chat history.
+
+### Runtime evidence and limits
+
+Snapshot: 2026-11-02 14:31 UTC. Evidence: successful orchestrator_capabilities, read-only t3_thread_configure, t3_thread_list, list_scheduled_tasks and git worktree list. This is runtime evidence, not a fixed configuration or proof of billing entitlement. Refresh when routing requires it.
+
+| Capability | Classification / evidence |
+| --- | --- |
+| Provider/model/options discovery | Confirmed: catalog returned enabled Codex instances, exact model option enums and disabled alternatives. Some models omitted from short catalog; use supported search when needed. Context limits, prices, auth/billing route and quotas were not returned |
+| Claude execution | Unavailable now: claudeAgent is disabled; both child-task execution flags false. Listed Claude models do not establish usable access, Claude Pro purchase or authentication |
+| Current model/settings read | Confirmed: current Codex gpt-6.1-sol, reasoningEffort medium, serviceTier default; full-access/default interaction. This is an observation, not a routing requirement |
+| Model/settings changes | Restricted: configuration mutation and target model/options are exposed; no switch performed. Authentication continuity, live provider change and session import remain unverified |
+| Thread inventory | Confirmed: one existing top-level thread and nine idle children returned; no other running worker in this project at observation. No thread created, renamed, messaged or archived |
+| Delegation/parallelism/results/cancellation | Exposed and capability-advertised; native agents have historical project evidence. No new child/result/cancellation live test during this docs-only update; current T3 continuation instructions govern completion and prohibit polling running delegates |
+| Top-level creation/worktree isolation | Restricted: APIs exposed, but current harness requires explicit user request for new top-level threads and supported binding of workspaces. Git shows one root checkout; no new worktree or branch created |
+| Scheduling/next-turn execution | Exposed: scheduledTasks true and scheduler tools present; successful list returned zero schedules. No runner/schedule installed or activated. End-of-turn/restart recovery, reliable relaunch and enforced long-run limits remain unverified |
+| Secrets | Secure request_secret interface exposed; not invoked because no secret needed. No credentials read, requested or persisted |
+| Subscription/API billing and usage | UNKNOWN for Codex and Claude: no authoritative billing route, five-hour/weekly allowance, remaining percentage/reset/freshness or hard spend enforcement exposed by this discovery. Display names are not entitlement evidence. The prompt's assumed Plus/Pro subscriptions are not asserted as verified account facts |
+| Cross-harness loading/context | CLAUDE.md remains a minimal pointer to AGENTS.md; fresh Claude Code automatic discovery and provider session import have not been live-tested. Explicitly read canonical instructions when starting |
+
+### Seven autonomy links
+
+| Link | Status / evidence |
+| --- | --- |
+| Durable backlog | SUPPORTED: docs/tasks.md, committed repository records |
+| Task selection | SUPPORTED in the current turn: HQ uses priorities, dependencies and ownership; no autonomous scheduler selection validated |
+| Completion detection | RESTRICTED: result/cancellation APIs and completion-wakeup contract exposed; no new background completion trial in this update |
+| Next-turn relaunch | RESTRICTED: scheduler/send/delegate interfaces exposed; bounded unattended chaining and restart guarantees unverified |
+| Pause/resume | RESTRICTED: cancellation exposed, handoff/manual resume supported; automatic safe checkpoint resume unverified |
+| Budget enforcement | UNKNOWN: no provider quota/billing telemetry or verified hard spend enforcement; a written limit is not a runtime-enforced control |
+| Context handoff | SUPPORTED through Git and task records; automatic cross-provider session import unverified |
+
+### Optional session procedure
+
+Before a Ralph Loop, propose objective, eligible tasks/dependencies, estimated maximum duration and expected outcomes, workspace/review rules, time/iteration/retry/concurrency ceilings, exact authorized provider/model alternatives, confirmed billing route and usage/spending boundaries, quota evidence or approved fallback caps, continuation capability and whether further Ready tasks may follow. Obtain explicit session approval; routine setup or past time allowances do not activate it. A maximum is a ceiling, not a work-time quota.
+
+Keep the approved session state in its existing docs/tasks.md task/handoff: start/deadline, task owners, remaining limits, provider quota source/window/unit/timestamp/reset and decision (or UNKNOWN), fallback caps, changes/tests, blockers and next safe action. Revalidate before each new assignment and costly operation; obey the most restrictive applicable quota window. At20% or likely reserve breach, stop new provider work. Stale/inaccessible telemetry never becomes assumed capacity; use only approved conservative fallbacks, otherwise stop unattended scheduling. Subscription allowance, context size, elapsed time and estimated API-equivalent costs are different measures. Never enable paid extra usage or auto-reload or assume switching models resets quota. No automatic restart after a reset without an explicitly approved enforceable multi-window plan.
+
+A useful iteration is read → select → specify/route → implement → verify → record → continue within approval. Stop at the earliest authorized ceiling, protected reserve/fallback cap, cancellation, unsafe state, blocker, technical failure or exhausted eligible backlog; leave recoverable changes and observed results. Do not install an external supervisor or add a second loop to an existing one without a justified, separately approved need. Current setup provides bounded in-turn work and repository handoffs; persistent autonomous operation is not certified.
