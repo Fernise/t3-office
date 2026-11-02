@@ -47,3 +47,10 @@
 .elevator-sky { background: var(--office-scene-bg,#112735); }
 .elevator-in-office-world .elevator-stage { visibility: hidden; }
 .elevator-in-office-world .elevator-sky { opacity: 0 !important; }
+
+/* Arriving from a building-view dive: no doors; fade through the floor's background, then reveal the office. */
+.elevator-overlay.elevator-dive .elevator-doors { display: none; }
+.elevator-overlay.elevator-dive .elevator-sky { background: var(--dive-bg, #112735); opacity: 0 !important; transition: opacity .45s ease; }
+.elevator-overlay.elevator-dive:is([data-phase=boarding],[data-phase=arrival-loading]) .elevator-sky { opacity: 1 !important; }
+.elevator-overlay.elevator-dive[data-phase=arrival-loading] .elevator-sky { transition: none; }
+.elevator-overlay.elevator-dive.reduced-motion .elevator-sky { transition: none; }

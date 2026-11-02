@@ -50,7 +50,15 @@ try{
  // Building directory over the Worker lists only authorized floors.
  const floors=(await call(guest,'/floors')).floors;assert.deepEqual(floors.map(f=>f.ownerName).sort(),['Alice','Bob']);
  const bp=await guest.newPage();bp.on('pageerror',e=>errors.push(e.message));bp.on('requestfinished',watchPrivate);
- const floorsSeen=bp.waitForResponse(r=>r.url().endsWith('/api/building/floors')&&r.ok(),{timeout:60000});await bp.goto(base+'?building=1&weather=clear');await bp.waitForFunction(()=>window.__ready,{},{timeout:90000});await floorsSeen;await bp.screenshot({path:'shots/cloud-ui-building.png',timeout:60000});await bp.close();
+ const floorsSeen=bp.waitForResponse(r=>r.url().endsWith('/api/building/floors')&&r.ok(),{timeout:60000});await bp.goto(base+'?building=1&weather=clear');await bp.waitForFunction(()=>window.__ready,{},{timeout:90000});await floorsSeen;await bp.screenshot({path:'shots/cloud-ui-building.png',timeout:60000});
+ // Exercise the real main.ts render host and smooth camera hand-off in the production bundle.
+ await bp.locator('.building-world[data-rendered=true]').waitFor();
+ await bp.getByRole('button',{name:'Floors',exact:true}).click();
+ await bp.locator(`.building-world-directory [data-floor="${floors.find(f=>f.isOwner).id}"]`).click();
+ await bp.emulateMedia({reducedMotion:'no-preference'});const enteredAt=Date.now();await bp.locator('[data-action=enter]').click();
+ await bp.locator('.building-world.diving').waitFor();await bp.locator('.building-world').waitFor({state:'detached',timeout:10000});
+ assert.ok(Date.now()-enteredAt>=1150,'Production office entry eases through the live render host');
+ assert.equal(await bp.locator('body.building-view-open').count(),0);assert.equal(await bp.locator('.elevator-overlay').count(),0);await bp.close();
 
  // Owner revokes; the guest's live visit ends and the floor disappears.
  const grant=(await call(owner,'/grants')).grants.find(g=>g.userHandle==='cloud_guest');await call(owner,'/grants/'+grant.id,{},'DELETE');
@@ -58,6 +66,6 @@ try{
  assert.equal((await guest.request.get(base+'api/building/offices/'+h.office.id)).status(),404);assert.deepEqual((await call(guest,'/floors')).floors.map(f=>f.ownerName),['Bob']);
 
  assert.deepEqual(forbidden,[],'The Worker-served UI may only probe /api/t3/status, which must be 404');assert.deepEqual(errors,[]);
- console.log('PASS: Worker-served production UI: same-origin assets, private-route isolation, two-browser invite/accept/admit/enter/chat, building directory and live revocation.');
+ console.log('PASS: Worker-served production UI: same-origin assets, private-route isolation, two-browser invite/accept/admit/enter/chat, building directory, smooth own-office entry and live revocation.');
 }catch(e){if(log.length)console.error(log.join('').slice(-3000));throw e;}
 finally{await browser?.close();worker?.kill('SIGTERM');await new Promise(r=>setTimeout(r,500));await rm(dir,{recursive:true,force:true});}

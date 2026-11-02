@@ -109,6 +109,8 @@ The user rejected the separate dashboard-style building window. This supersedes 
 
 Replace the full-width header and permanent sidebar with compact paper controls styled from the original HUD variables. The floor inspector/directory appears only when selected/opened; private own-office finance and world tags are hidden in building mode. Original music/clock controls remain. Entry from building mode animates the actual scene behind the same themed travel controls, instead of switching to a second illustrated building window. No permission/data-contract changes; presence volumes stay opaque and snapshots remain consented metadata. Standalone test harnesses use the same pixel pipeline in a disposable fallback; the actual app allocates no additional WebGL renderer.
 
+Floor-entry follow-up (2026-11-02, OFF-035): Enter this office eases the building camera into the live office framing over 1.25 seconds. The current office resumes in place; another floor uses a readiness-gated fade across navigation with access revalidation. Escape and failed travel restore building controls; ordinary directory updates do not reset entry. Reduced motion bypasses the glide. This changes navigation presentation only, with no new shared data.
+
 ## Shared focus, owner moments and guided tour (2026-10-30)
 
 The user approved improvements 1–3 from the bounded app review, with a maximum 45-minute implementation iteration: shared focus, owner-approved milestones and a playable first tour. HQ owns integration; bounded native workers supplied the social API/UI and synthetic browser test. The UI/test workers hit their provider usage limit after writing their files; HQ completed and verified the remaining work directly. No provider failover or extra paid route was used.

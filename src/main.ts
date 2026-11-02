@@ -114,6 +114,12 @@ async function main() {
     canvas, theme,
     // Only in your own office: while visiting, `source` holds the host's agents, not yours.
     ...(shared ? {} : { agents: () => source.threads().filter((t) => !t.parentId).length }),
+    // The live camera sits 60 units back along (sin az cos el, sin el, cos az cos el) from its target (see placeCamera).
+    view: () => {
+      placeCamera();
+      const direction = new THREE.Vector3(); camera.getWorldDirection(direction);
+      return { target: camera.position.clone().addScaledVector(direction, 60), az: Math.atan2(-direction.x, -direction.z), el: Math.asin(-direction.y), half: camera.top };
+    },
     render: (scene, camera) => pipe.render(scene, camera),
     sync: (scene, sun, hemi) => { scene.background = office.scene.background; scene.fog = office.scene.fog; sun.color.copy(office.sun.color); sun.intensity = office.sun.intensity; sun.position.copy(office.sun.position); hemi.color.copy(office.hemi.color); hemi.groundColor.copy(office.hemi.groundColor); hemi.intensity = office.hemi.intensity; if (scene.background instanceof THREE.Color) document.documentElement.style.setProperty('--office-scene-bg', `#${scene.background.getHexString()}`); },
   });

@@ -38,3 +38,10 @@ body.building-view-open > #tags, body.building-view-open > #wall, body.building-
 
 .building-world-moment { border-left:3px solid var(--accent);padding-left:10px;overflow-wrap:anywhere; }
 .building-world-moment small { display:block;margin-bottom:5px; }
+
+/* Entering a floor: the controls fade away while the camera glides into the office view. */
+.building-world > header, .building-world aside, .building-world-labels { transition: opacity .35s ease; }
+.building-world.diving aside { display: block; }
+.building-world.diving > header, .building-world.diving aside, .building-world.diving .building-world-labels { opacity: 0; pointer-events: none; }
+
+@media (prefers-reduced-motion: reduce) { .building-world > header, .building-world aside, .building-world-labels { transition: none; } }

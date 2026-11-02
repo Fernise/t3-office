@@ -23,6 +23,8 @@ export interface BuildingRenderHost {
   sync(scene: THREE.Scene, sun: THREE.DirectionalLight, hemi: THREE.HemisphereLight): void;
   /** Your own agents on this screen (local only, never sent anywhere), so your floor shows them even when not sharing. */
   agents?(): number;
+  /** The live office camera: where it looks, its angle/tilt (radians) and vertical half-size, so entering can land on exactly that view. */
+  view?(): { target: THREE.Vector3; az: number; el: number; half: number };
 }
 export async function openBuildingView(openFriends: () => void, host?: BuildingRenderHost) {
   if (closeCurrent) return;
@@ -64,18 +66,39 @@ export async function openBuildingView(openFriends: () => void, host?: BuildingR
   const momentLamps: {light:THREE.PointLight;at:number}[] = [];
   const rings = new Map<string, THREE.LineSegments>(); const rowY = new Map<string, number>(); const floorLook = new Map<string, { color: string; intensity: number }>();
   const ringMaterial = new THREE.LineBasicMaterial({ color: '#ffda83' });
-  const target = new THREE.Vector3(0, 4, 0); const wanted = target.clone(); let half = 12; let needV = 12; let needH = 22; let shift = 0; let zoom = 1; let yaw = .5; let goalYaw = .5;
+  const target = new THREE.Vector3(0, 4, 0); const wanted = target.clone(); let half = 12; let needV = 12; let needH = 22; let shift = 0; let zoom = 1; let yaw = .5; let goalYaw = .5; const EL = Math.atan2(36, 80); let el = EL;
   const motion = matchMedia('(prefers-reduced-motion: reduce)');
   // Transitions: the camera eases between framings while the building splits open around a chosen floor
   // (floors above rise, everything below sinks) and closes again for the whole view. Off-screen parts are hidden once still.
   const DURATION = 1100, INTRO = 1500, SPLIT = 38;
   const ease = (p: number) => p < .5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2;
-  const tween = { t0: 0, dur: 0, done: true, snap: false, waitForBakes: false, from: new THREE.Vector3(), fromHalf: 12, fromShift: 0 };
+  const tween = { t0: 0, dur: 0, done: true, snap: false, waitForBakes: false, fromYaw: .5, fromEl: EL, toYaw: .5, toEl: EL, dive: undefined as undefined | (() => void), from: new THREE.Vector3(), fromHalf: 12, fromShift: 0 };
   function startTween(instant: boolean, duration = DURATION) {
-    tween.from.copy(target); tween.fromHalf = half; tween.fromShift = shift;
+    tween.from.copy(target); tween.fromHalf = half; tween.fromShift = shift; tween.fromYaw = yaw; tween.fromEl = el; tween.toYaw = goalYaw; tween.toEl = EL; tween.dive = undefined;
     for (const o of models.children) o.userData.fromOff = o.userData.off ?? 0;
-    const still = instant || motion.matches; tween.dur = still ? 0 : duration; tween.t0 = performance.now(); tween.done = false; tween.snap = still;
+    const still = instant || motion.matches; tween.dur = still ? 0 : duration; tween.t0 = performance.now(); tween.done = false; tween.snap = still; tween.waitForBakes = false;
     if (!selected || !still) for (const o of models.children) o.visible = true;
+  }
+  /**
+   * Entering a floor: glide into it and finish on exactly the live office camera (angle, tilt, zoom), so the hand-off
+   * to the office is not a cut. Without a live office (or with reduced motion) it hands off at once.
+   */
+  function dive(id: string, done: () => void) {
+    const live = host?.view?.(); const y = rowY.get(id);
+    root.classList.add('diving'); root.tabIndex = -1; root.focus();
+    for (const controls of root.querySelectorAll<HTMLElement>('header, aside, .building-world-labels')) controls.inert = true;
+    if (!live || y === undefined || motion.matches) return done();
+    root.dataset.directoryOpen = 'false'; root.dataset.controlsOpen = 'false'; zoom = 1;
+    for (const ring of rings.values()) ring.visible = false;
+    wanted.set(live.target.x - CX, live.target.y + y, live.target.z); needV = live.half; needH = 0;
+    startTween(false, 1250); tween.toYaw = goalYaw = live.az; tween.toEl = live.el; tween.dive = done;
+  }
+  function cancelDive() {
+    if (!root.classList.contains('diving')) return;
+    root.classList.remove('diving'); tween.dive = undefined;
+    for (const controls of root.querySelectorAll<HTMLElement>('header, aside, .building-world-labels')) controls.inert = false;
+    if (selected && floors.some(f => f.id === selected)) select(selected, false); else fit();
+    root.querySelector<HTMLButtonElement>('[data-action=close]')!.focus();
   }
   /** Vertical slide for every building part while focusing `id` (0 = in place). */
   function split(id: string | null) {
@@ -194,17 +217,24 @@ export async function openBuildingView(openFriends: () => void, host?: BuildingR
         next = [{ id: 'local-own', name: T.own, ownerName: T.own, isOwner: true, scope: 'owner', online: false, agentCount: 0, updatedAt: null, areas: [], appearance }];
       }
       if (closed) return;
+      const previousScope = floors.find(f => f.id === selected)?.scope;
       floors = next;
       const nextSignature = JSON.stringify(next.map(({ updatedAt: _, ...f }) => f));
       status.textContent = anonymous ? T.local : `${next.length} ${T.count}${next.length > 24 ? ` · ${T.limited}` : ''}`;
       canvas.hidden = false; labelLayer.hidden = false;
+      // Keep the camera continuous through routine snapshot updates, but clear revoked access or a changed sharing scope immediately.
+      if (root.classList.contains('diving')) {
+        if (next.some(f => f.id === selected && f.scope === previousScope)) return;
+        cancelDive();
+      }
       if (signature !== nextSignature) { const keep = selected; const hadFloors = signature !== ''; signature = nextSignature; if (windowStart >= next.length) windowStart = 0; build(!keep && !hadFloors); if (keep && next.some(f => f.id === keep)) select(keep, false, true); }
 
-    } catch { if (!closed) { models.clear(); rings.clear(); floors = []; selected = null; signature = ''; canvas.hidden = true; labelLayer.replaceChildren(); directory.innerHTML = `<button data-action="retry">${T.retry}</button>`; detail.replaceChildren(); status.textContent = T.error; root.dataset.controlsOpen = 'true'; root.dataset.directoryOpen = 'true'; } }
+    } catch { if (!closed) { cancelDive(); models.clear(); rings.clear(); floors = []; selected = null; signature = ''; canvas.hidden = true; labelLayer.replaceChildren(); directory.innerHTML = `<button data-action="retry">${T.retry}</button>`; detail.replaceChildren(); status.textContent = T.error; root.dataset.controlsOpen = 'true'; root.dataset.directoryOpen = 'true'; } }
     finally { busy = false; }
   }
   function close() {
     if (closed) return; closed = true; closeCurrent = undefined; cancelAnimationFrame(raf); clearInterval(poll); observer.disconnect();
+    window.removeEventListener('office-travel-cancel', cancelDive);
     window.removeEventListener('office-elevator-move', moveCabin); window.removeEventListener('office-building-close', close); window.removeEventListener('pagehide', close); window.removeEventListener('office-departure', fit);
     identityDisposals.splice(0).forEach(dispose=>dispose());
     fallback?.dispose(); sun.shadow.map?.dispose(); unit.dispose(); leaves.dispose(); edges.dispose(); ringMaterial.dispose();
@@ -218,43 +248,48 @@ export async function openBuildingView(openFriends: () => void, host?: BuildingR
   }
   if (import.meta.env.DEV) (window as unknown as { __buildingView: unknown }).__buildingView = { camera, models, selected: () => selected, pending: () => pending.length, moving: () => !tween.done || tween.waitForBakes };
   const moveCabin = (event: Event) => { const id = (event as CustomEvent<string>).detail; if (rowY.has(id)) cabinTarget = rowY.get(id)!; };
+  window.addEventListener('office-travel-cancel', cancelDive);
   window.addEventListener('office-elevator-move', moveCabin);
   closeCurrent = close; window.addEventListener('office-building-close', close); window.addEventListener('pagehide', close, { once: true }); window.addEventListener('office-departure', fit);
   root.addEventListener('click', event => {
+    if (root.classList.contains('diving')) return;
     const button = (event.target as HTMLElement).closest<HTMLButtonElement>('button'); if (!button) return;
     if (button.dataset.floor) return select(button.dataset.floor);
     const action = button.dataset.action;
     if (action === 'close') close(); else if (action === 'all') fit(); else if (action === 'directory') { root.dataset.directoryOpen = String(root.dataset.directoryOpen !== 'true'); paintSelection(); } else if (action === 'retry') void refresh();
     else if (action === 'friends') { close(); openFriends(); }
-    else if (action === 'enter') { const f = floors.find(f => f.id === selected); if (!f) return; if (f.id === 'local-own' || (f.isOwner && new URLSearchParams(location.search).get('source') !== 'shared')) close(); else void travelToFloor(f.isOwner ? null : f.id); }
+    else if (action === 'enter') { const f = floors.find(f => f.id === selected); if (!f || root.classList.contains('diving')) return; const params = new URLSearchParams(location.search); const here = params.get('source') === 'shared' ? params.get('floor') === f.id : f.isOwner; dive(f.id, () => { if (here) close(); else void travelToFloor(f.isOwner ? null : f.id, { dived: true, background: (THEMES.find(t => t.id === f.appearance?.theme) ?? theme).bg }); }); }
   });
-  root.addEventListener('keydown', event => { event.stopPropagation(); if (event.key === 'Escape') { event.preventDefault(); selected ? fit() : close(); } if (event.key === 'Tab') { const buttons = [...root.querySelectorAll<HTMLElement>('button:not([disabled]), a[href], input:not([disabled]), select, textarea, [tabindex="0"]')].filter(b => b.offsetParent !== null && getComputedStyle(b).visibility !== 'hidden'); const i = buttons.indexOf(document.activeElement as HTMLButtonElement); if (event.shiftKey && i <= 0) { event.preventDefault(); buttons.at(-1)?.focus(); } else if (!event.shiftKey && i === buttons.length - 1) { event.preventDefault(); buttons[0]?.focus(); } } });
+  root.addEventListener('keydown', event => { event.stopPropagation(); if (root.classList.contains('diving')) { if (event.key === 'Escape') { event.preventDefault(); cancelDive(); } else if (event.key === 'Tab') event.preventDefault(); return; } if (event.key === 'Escape') { event.preventDefault(); selected ? fit() : close(); } if (event.key === 'Tab') { const buttons = [...root.querySelectorAll<HTMLElement>('button:not([disabled]), a[href], input:not([disabled]), select, textarea, [tabindex="0"]')].filter(b => b.offsetParent !== null && getComputedStyle(b).visibility !== 'hidden'); const i = buttons.indexOf(document.activeElement as HTMLButtonElement); if (event.shiftKey && i <= 0) { event.preventDefault(); buttons.at(-1)?.focus(); } else if (!event.shiftKey && i === buttons.length - 1) { event.preventDefault(); buttons[0]?.focus(); } } });
   for (const kind of ['pointerdown', 'pointerup', 'pointermove', 'wheel']) root.addEventListener(kind, e => e.stopPropagation());
   const ray = new THREE.Raycaster(); let drag: { x: number; y: number; yaw: number; moved: boolean } | undefined;
-  stage.addEventListener('pointerdown', e => { if ((e.target as HTMLElement).closest('button')) return; drag = { x: e.clientX, y: e.clientY, yaw: goalYaw, moved: false }; canvas.setPointerCapture(e.pointerId); });
+  stage.addEventListener('pointerdown', e => { if (root.classList.contains('diving') || (e.target as HTMLElement).closest('button')) return; drag = { x: e.clientX, y: e.clientY, yaw: goalYaw, moved: false }; canvas.setPointerCapture(e.pointerId); });
   stage.addEventListener('pointermove', e => { if (!drag) return; if (Math.hypot(e.clientX - drag.x, e.clientY - drag.y) > 5) drag.moved = true; if (drag.moved) goalYaw = THREE.MathUtils.clamp(drag.yaw + (e.clientX - drag.x) * .005, -.9, 1.1); });
   stage.addEventListener('pointercancel', () => { drag = undefined; });
-  stage.addEventListener('pointerup', e => { const click = drag && !drag.moved; drag = undefined; if (!click) return; const r = canvas.getBoundingClientRect(); ray.setFromCamera(new THREE.Vector2((e.clientX - r.left) / r.width * 2 - 1, -(e.clientY - r.top) / r.height * 2 + 1), camera); for (const hit of ray.intersectObjects(models.children, true)) { let o: THREE.Object3D | null = hit.object; while (o && !o.userData.floorId) o = o.parent; if (o?.userData.floorId) { select(o.userData.floorId); break; } } });
-  stage.addEventListener('wheel', e => { e.preventDefault(); zoom = THREE.MathUtils.clamp(zoom + Math.sign(e.deltaY) * .08, .65, 1.6); }, { passive: false });
+  stage.addEventListener('pointerup', e => { const click = drag && !drag.moved; drag = undefined; if (!click || root.classList.contains('diving')) return; const r = canvas.getBoundingClientRect(); ray.setFromCamera(new THREE.Vector2((e.clientX - r.left) / r.width * 2 - 1, -(e.clientY - r.top) / r.height * 2 + 1), camera); for (const hit of ray.intersectObjects(models.children, true)) { let o: THREE.Object3D | null = hit.object; while (o && !o.userData.floorId) o = o.parent; if (o?.userData.floorId) { select(o.userData.floorId); break; } } });
+  stage.addEventListener('wheel', e => { e.preventDefault(); if (root.classList.contains('diving')) return; zoom = THREE.MathUtils.clamp(zoom + Math.sign(e.deltaY) * .08, .65, 1.6); }, { passive: false });
   let last = performance.now(); let rendered = 0;
   function loop(now: number) {
     if (closed) return; raf = requestAnimationFrame(loop); if (tween.done && !drag && now - rendered < 30) return; rendered = now;
     const dt = Math.min(.05, (now - last) / 1000); last = now; const k = motion.matches ? 1 : 1 - Math.exp(-dt * 6);
-    yaw += (goalYaw - yaw) * k;
     // The intro waits on your floor until new floors are baked, so the pull-back is not eaten by busy frames.
     if (tween.waitForBakes) { if (pending.length) tween.t0 = now; else tween.waitForBakes = false; }
     const p = tween.dur ? Math.min(1, (now - tween.t0) / tween.dur) : 1, e = ease(p), moving = p < 1;
-    if (moving) target.lerpVectors(tween.from, wanted, e); else if (tween.snap) target.copy(wanted); else target.lerp(wanted, k);
+    if (!tween.done) target.lerpVectors(tween.from, wanted, e); else if (tween.snap) target.copy(wanted); else target.lerp(wanted, k);
+    // Angle and tilt follow the tween during a dive (to the office view), otherwise the drag goal and the default tilt.
+    if (!tween.done && tween.dive) { yaw = tween.fromYaw + (tween.toYaw - tween.fromYaw) * e; el = tween.fromEl + (tween.toEl - tween.fromEl) * e; }
+    else { yaw += (goalYaw - yaw) * k; if (!tween.dive) el += (EL - el) * k; }
     // With the side panel open on wide screens, centre the building in the space left of it.
     const aside = root.querySelector('aside'); const panel = root.dataset.controlsOpen === 'true' && width >= 900 && aside ? aside.getBoundingClientRect().width + 24 : 0;
     // Fit both the needed height and the needed width (in the space left of the panel) of the ortho view.
     const fitHalf = Math.max(needV, needH * (width / Math.max(320, width - panel)) / Math.max(.3, width / height));
-    if (moving) half = tween.fromHalf + (fitHalf * zoom - tween.fromHalf) * e; else if (tween.snap) half = fitHalf * zoom; else half += (fitHalf * zoom - half) * k;
-    const shiftGoal = (panel / 2) * (2 * half / height); shift = moving ? tween.fromShift + (shiftGoal - tween.fromShift) * e : tween.snap ? shiftGoal : shift + (shiftGoal - shift) * k;
+    if (!tween.done) half = tween.fromHalf + (fitHalf * zoom - tween.fromHalf) * e; else if (tween.snap) half = fitHalf * zoom; else half += (fitHalf * zoom - half) * k;
+    const shiftGoal = (panel / 2) * (2 * half / height); shift = !tween.done ? tween.fromShift + (shiftGoal - tween.fromShift) * e : tween.snap ? shiftGoal : shift + (shiftGoal - shift) * k;
     for (const o of models.children) { const off = o.userData.fromOff + (o.userData.toOff - o.userData.fromOff) * e; o.userData.off = off; if (o !== cabin) o.position.y = o.userData.baseY + off; }
+    const finishDive = !moving && !tween.done ? tween.dive : undefined;
     if (!moving && !tween.done) { tween.done = true; tween.snap = false; for (const o of models.children) o.visible = !selected || o.userData.toOff === 0; }
     const look = target.clone().addScaledVector(new THREE.Vector3(Math.cos(yaw), 0, -Math.sin(yaw)), shift);
-    camera.position.set(look.x + Math.sin(yaw) * 80, look.y + 36, look.z + Math.cos(yaw) * 80); camera.lookAt(look);
+    camera.position.set(look.x + Math.sin(yaw) * Math.cos(el) * 88, look.y + Math.sin(el) * 88, look.z + Math.cos(yaw) * Math.cos(el) * 88); camera.lookAt(look);
     camera.left = -half * width / height; camera.right = half * width / height; camera.top = half; camera.bottom = -half; camera.updateProjectionMatrix(); camera.updateMatrixWorld();
     // At most one new bake per frame (~20 ms); the placeholder slab is replaced in place.
     const next = pending.shift(); if (next && next.group.parent) { next.group.getObjectByName('placeholder')?.removeFromParent(); furnish(next.group, next.id, next.appearance, next.demand, next.agents); }
@@ -270,6 +305,8 @@ export async function openBuildingView(openFriends: () => void, host?: BuildingR
     if (host) host.render(scene, camera); else fallback!.render(scene, camera);
     for (const label of labelLayer.querySelectorAll<HTMLElement>('button')) { const g = models.children.find(o => o.userData.floorId === label.dataset.floor); const y = g ? g.position.y : rowY.get(label.dataset.floor!) ?? 0; const p = new THREE.Vector3(-W / 2, y + 1.4, maxZ + .5).project(camera); label.style.left = `${Math.max(10, Math.min(width - 150, (p.x + 1) / 2 * width - 130))}px`; label.style.top = `${(1 - p.y) / 2 * height}px`; label.hidden = (!!selected && selected !== label.dataset.floor) || p.y < -.94 || p.y > .94; }
     root.dataset.rendered = 'true';
+    // Render the exact landing pose before restoring the live office or starting its arrival fade.
+    finishDive?.();
   }
   raf = requestAnimationFrame(loop); root.querySelector<HTMLButtonElement>('[data-action=close]')!.focus();
   await refresh(); if (!closed) poll = setInterval(() => { void refresh(); }, 5000);
