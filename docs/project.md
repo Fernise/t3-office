@@ -54,11 +54,9 @@ Native same-provider agents were used for a bounded backend implementation and i
 
 ## Next priorities
 
-1. Run the app with two real participants using synthetic sharing first and collect usability feedback.
-2. Review release identity/hosting requirements before any public deployment.
-3. Evaluate whole-building navigation, floor focus, elevator timing and accessibility in the two-person trial.
+The current actionable queue and cross-harness handoff are at the top of [tasks](tasks.md); use that record for ownership/status rather than historical “next” notes in completed handoffs. OFF-024 input isolation is locally verified and the user confirmed it works. Cloudflare account preparation and GitHub OAuth registration instructions were supplied, but neither registration is confirmed. OFF-025 covers the future cloud adapter; OFF-026 covers secure live-provider configuration and a real OAuth trial. Public deployment remains unauthorized.
 
-After the first user trial, simplify redundant process or split responsibilities only if recurring work warrants it.
+The user plans to add a Claude subscription to collaborate alongside GPT Sol. This is a preference/intention, not confirmed provider availability. Share canonical repository records, claim ownership before work, and avoid simultaneous edits to the same files. CLAUDE.md already points to AGENTS.md; automatic instruction discovery and actual Claude authentication remain unverified.
 
 ## Office-first revision (2026-10-28)
 

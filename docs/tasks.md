@@ -4,6 +4,19 @@ Canonical task board. Check ownership before starting or delegating. Significant
 
 Statuses: Backlog, Ready, In Progress, Review, Done, Blocked. Done requires verified acceptance; integration/deployment are separate. The user delegated ongoing project leadership to HQ on 2026-10-28: the former per-task approval gates are superseded for routine work within this project. External spending, public deployment, destructive actions and private-data exposure remain restricted.
 
+## Current queue and cross-harness handoff (2026-11-02)
+
+Latest implementation commits: 81210bd (onboarding/protocol foundation), 0479ce9 (gated GitHub HTTP/native sign-in), cc78080 (UI click-through fix). Root branch feat/collaborative-building; verify actual Git state before resuming. No active implementation owner beyond HQ, no running delegated work or automatic continuation is claimed. All completed features are local; no push/PR/public deployment.
+
+| Task | Status / owner | Next action / dependency | Acceptance and verification |
+| --- | --- | --- | --- |
+| OFF-024 UI input isolation | Done / HQ | User subsequently confirmed “It works”; device/browser details not specified | Observed browser regression, menu-race checks and build recorded below; no claim of all-browser certification |
+| OFF-025 Cloudflare backend adapter | Backlog / unassigned | User requested account setup guidance; Cloudflare registration not confirmed. Implement and test locally before provisioning/deployment | Preserve existing consent, single-use invites, human admission, message retention, isolation and revocation against cloud storage/transport; no private T3 endpoints. Node SQLite backend is not currently deployable unchanged as a Worker |
+| OFF-026 Real GitHub login configuration/trial | Blocked / HQ coordination; user registration pending | User guided to register local OAuth app; registration not confirmed. Homepage http://localhost:5173; callback http://localhost:5173/api/building/auth/github/callback. Needs secure secret delivery and explicit launcher configuration | Synthetic broker/HTTP/UI are implemented, but real consent/callback/login/cancel remain unverified. Do not auto-link existing accounts or request repository access; no secrets in chat/files committed to Git |
+| OFF-007 Hosted trial/release readiness | Backlog / unassigned | Depends on backend, reviewed origin/TLS configuration, identity and authorized hosted trial | Two people on different computers; reconnect/revocation tests; recovery, backups, abuse controls and monitoring. Public deployment requires authorization |
+
+Claude/GPT coordination: both read AGENTS.md, docs/project.md and this queue. Claim one bounded task here before editing. One writer per file; use supported isolated workspaces for concurrent implementations, or assign disjoint files and coordinate interfaces first. Prefer implementation plus read-only review when tasks share files. Record provider/model only when actually known. Return changed files, branch, exact observed checks, limitations and next step to this file. Conversations do not automatically share history. A planned Claude subscription is not evidence that Claude is connected or available in this harness; rediscover tools/providers after configuration.
+
 ## OFF-001 — Establish project operating setup
 
 - Priority/owner/status: P0 / HQ / Done.
