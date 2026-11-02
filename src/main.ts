@@ -112,6 +112,8 @@ async function main() {
   installHudFit(document.getElementById('hud')!);
   installOfficeMenu(source, shared, (id) => focusAgent(id), {
     canvas, theme,
+    // Only in your own office: while visiting, `source` holds the host's agents, not yours.
+    ...(shared ? {} : { agents: () => source.threads().filter((t) => !t.parentId).length }),
     render: (scene, camera) => pipe.render(scene, camera),
     sync: (scene, sun, hemi) => { scene.background = office.scene.background; scene.fog = office.scene.fog; sun.color.copy(office.sun.color); sun.intensity = office.sun.intensity; sun.position.copy(office.sun.position); hemi.color.copy(office.hemi.color); hemi.groundColor.copy(office.hemi.groundColor); hemi.intensity = office.hemi.intensity; if (scene.background instanceof THREE.Color) document.documentElement.style.setProperty('--office-scene-bg', `#${scene.background.getHexString()}`); },
   });
