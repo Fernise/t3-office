@@ -76,3 +76,27 @@ Agent activity on the hosted building comes only from explicit browser sharing o
 - Worker accounts are separate from the Node service's `.local/building.sqlite`. Nothing is migrated.
 - Rate-limit counters live in D1 (fixed 15-minute or daily windows). They are suitable for a small trial, not for a public launch.
 - A public launch needs its own review: custom domain, open sign-up policy, recovery, moderation and paid-plan limits.
+
+## Updating the existing trial from a prepared candidate
+
+Preparation produces an ignored local directory under `.local/releases/` containing the built `dist/`, bundled Worker, trial configuration, migrations for reference, `manifest.json`, and `SHA256SUMS`. Use the candidate directory recorded in your preparation handoff. It is specific to this account and should stay private. No secret values or trial database rows belong in this package.
+
+Before deployment, verify the package hashes from inside its directory with `shasum -a 256 -c SHA256SUMS`. Use `wrangler deployments status --config <candidate-dir>/wrangler.json --json` to compare the active version with `rollback_worker_version` in its manifest. If the active version changed since preparation, update the baseline and rollback plan before proceeding. Confirm the intended guest list, origin, API-open setting and existing D1 binding.
+
+Take a fresh backup immediately before deployment, using the existing backup command after confirming its target matches the candidate. Preserve the backup path privately; do not print or commit its contents. A local candidate package is not a database backup.
+
+Deploy the exact verified payload with:
+
+```sh
+npx wrangler deploy --no-bundle --config <candidate-dir>/wrangler.json
+```
+
+The candidate uses its own copied assets and bundled Worker, so subsequent changes in the root `dist/` do not change this deployment. Record the resulting Worker version. Run `npm run cloud:trial:smoke -- <configured-origin>`, then perform real GitHub login and the two-person checklist above. Synthetic/local tests do not verify live GitHub consent or two-computer behaviour.
+
+For a frontend-only candidate with no new database migrations, restore the pre-update Worker version if the smoke check or essential flows fail:
+
+```sh
+npx wrangler rollback <rollback_worker_version-from-manifest> --config <candidate-dir>/wrangler.json --message "Restore pre-update trial version"
+```
+
+Re-run smoke after rollback and record its result. Worker rollback does not restore D1 data; keep accounts, invitations and conversations in place. Do not apply a database restore to fix a visual regression. If rollback is unavailable and access must be stopped, deploy the same candidate with `--no-bundle --var API_OPEN:0`, then investigate. These are deployment/rollback instructions; preparation only runs dry-runs.
