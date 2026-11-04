@@ -53,12 +53,27 @@ try{
  await hp.route('**/api/building/rooms/*/state',route=>route.fulfill({status:503,contentType:'application/json',body:'{"error":"synthetic outage"}'}));
  await hp.waitForFunction(()=>window.__humans.state()===null);assert.equal(await hp.locator('.human-name').count(),0);assert.equal(await hp.locator('[data-message]').count(),0);
  await hp.unrouteAll({behavior:'wait'});await hp.locator('.human-panel [data-enter]').click();await hp.waitForFunction(()=>window.__humans.state()?.people.length===1);
- // Preserve Alice's displayed draft while switching the browser cookie to Bob; POST must fail actor validation.
- await hp.locator('.human-send textarea').fill('A draft that must never transfer accounts');const held=[];
- await hp.route('**/api/building/rooms/*/state',route=>held.push(route));await hp.route('**/api/building/session',route=>held.push(route));
- await call(owner,'/logout',{});await call(owner,'/login',{handle:'human_guest',password});
- const rejected=hp.waitForResponse(r=>r.url().endsWith('/messages')&&r.request().method()==='POST');await hp.locator('.human-send button[type=submit]').click();assert.equal((await rejected).status(),409);
- for(const route of held)await route.abort().catch(()=>{});await hp.unrouteAll({behavior:'ignoreErrors'});await hp.waitForFunction(()=>window.__humans.state()===null);
+ // Preserve the displayed owner intent while changing the real server cookie. Serve
+ // settled polling snapshots so background presence/session checks cannot win the
+ // race and clear the form before the message reaches server actor validation.
+ await hp.locator('.human-send textarea').fill('A draft that must never transfer accounts');
+ const snapshots=new Map();
+ for(const path of ['/session','/human','/rooms',`/rooms/${h.office.id}/state`,`/rooms/${h.office.id}/requests`])snapshots.set('/api/building'+path,await call(owner,path));
+ await hp.route('**/api/building/**',route=>{
+  const request=route.request(),path=new URL(request.url()).pathname;
+  if(request.method()==='GET'&&snapshots.has(path))return route.fulfill({status:200,json:snapshots.get(path)});
+  if(request.method()==='POST'&&path.endsWith('/presence'))return route.fulfill({status:200,json:{ok:true}});
+  return route.continue();
+ });
+ try{
+  await call(owner,'/logout',{});const switched=await call(owner,'/login',{handle:'human_guest',password});assert.equal(switched.user.id,g.user.id);
+  const [rejected]=await Promise.all([
+   hp.waitForResponse(r=>r.url().endsWith('/messages')&&r.request().method()==='POST'),
+   hp.locator('.human-send button[type=submit]').evaluate(button=>button.click()),
+  ]);
+  assert.equal(rejected.request().postDataJSON().actorId,h.user.id,'The stale form sends its original owner intent');assert.equal(rejected.status(),409);
+ }finally{await hp.unrouteAll({behavior:'wait'});}
+ await hp.waitForFunction(()=>window.__humans.state()===null);
  assert.equal(await hp.locator('[data-message]').count(),0);assert.equal(await hp.locator('.human-name').count(),0);
  assert.deepEqual(errors,[]);console.log('PASS: human profile, explicit visit request/admission/travel, distinct real-office avatars, synchronized walking, escaped bidirectional chat, unread badge, mobile, host removal, retry/moderation, outage recovery and account-switch rejection.');
 }catch(error){if(browser)for(const [i,p]of browser.contexts().flatMap(c=>c.pages()).entries()){await p.screenshot({path:`shots/humans-failure-${i}.png`,timeout:10000}).catch(()=>{});console.log('Synthetic human diagnostics',i,await p.evaluate(()=>({url:location.href,notice:document.querySelector('.human-notice')?.textContent,people:window.__humans?.state()?.people,messages:window.__humans?.state()?.messages.length,panel:document.querySelector('.human-panel')?.textContent})).catch(()=>null));}throw error;
