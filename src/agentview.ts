@@ -91,9 +91,9 @@ export class AgentInspector {
   private paintT = 0;
   private reveal = 0;
   private lastTop = '';
-  /** which side of the sheet is open; stays when you go from agent to agent */
+  /** Overview is the normal entry point; customization is explicitly requested. */
   private tab: 'info' | 'thread' | 'customize' = 'info';
-  selectCharacter(id: string) { this.tab = this.editor && this.world.workers.has(id) ? 'customize' : 'info'; }
+  selectCharacter(id: string, customize = false) { this.tab = customize && this.editor && this.world.workers.has(id) ? 'customize' : 'info'; }
   get customizing() { return !!this.editor && this.tab === 'customize'; }
   private shown = '';
   private bound = new WeakSet<HTMLElement>();
@@ -101,7 +101,6 @@ export class AgentInspector {
   private convos = new Map<string, Convo>();
 
   constructor(private source: AgentSource, private world: World, private now: () => Date, private editor?: CharacterEditor) {
-    if (editor) this.tab = 'customize';
     this.canvas.width = 64;
     this.canvas.height = 36;
     this.g = this.canvas.getContext('2d')!;
@@ -217,7 +216,7 @@ export class AgentInspector {
       el.classList.toggle('reading', tab === 'thread');
       el.innerHTML = `
         <div class="part" data-part="top"></div>
-        <nav class="sheet-tabs">${this.editor ? `<button data-a="tab-customize" class="${tab === 'customize' ? 'on' : ''}">${B.customize}</button>` : ''}<button data-a="tab-info" class="${tab === 'info' ? 'on' : ''}">${S.tabOverview}</button>${this.source.transcript ? `<button data-a="tab-thread" class="${tab === 'thread' ? 'on' : ''}">${S.tabThread}</button>` : ''}</nav>
+        <nav class="sheet-tabs"><button data-a="tab-info" class="${tab === 'info' ? 'on' : ''}">${S.tabOverview}</button>${this.source.transcript ? `<button data-a="tab-thread" class="${tab === 'thread' ? 'on' : ''}">${S.tabThread}</button>` : ''}${this.editor ? `<button data-a="tab-customize" class="${tab === 'customize' ? 'on' : ''}">${B.customize}</button>` : ''}</nav>
         ${
           tab === 'thread'
             ? `<section class="thread"><div class="thread-scroll"><ol data-part="thread"></ol></div><button class="thread-jump" data-a="newest">${S.newest}</button></section>`

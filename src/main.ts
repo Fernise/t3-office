@@ -110,7 +110,7 @@ async function main() {
   const world = new World(office, theme, source, cycle, sfx, player, weather);
   hud = new Hud(theme, sfx, clock, source, player, weather, () => { window.dispatchEvent(new Event('office-building-close')); menu.open(); });
   installHudFit(document.getElementById('hud')!);
-  installOfficeMenu(source, shared, (id) => focusAgent(id), {
+  installOfficeMenu(source, shared, (id) => focusAgent(id, true), {
     canvas, theme,
     // Only in your own office: while visiting, `source` holds the host's agents, not yours.
     ...(shared ? {} : { agents: () => source.threads().filter((t) => !t.parentId).length }),
@@ -329,8 +329,8 @@ async function main() {
       previewDesk = null;
     },
   };
-  const focusAgent = (id: string) => {
-    inspector.selectCharacter(id);
+  const focusAgent = (id: string, customize = false) => {
+    inspector.selectCharacter(id, customize);
     if (fly.spot === agentSpot && fly.dir >= 0) {
       previewDesk?.preview(null);
       previewDesk = null;

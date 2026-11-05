@@ -40,7 +40,13 @@ try {
   await owner.screenshot({ path: 'shots/office-first.png', fullPage: true, timeout: 60000 });
   const firstLocal = await owner.evaluate(() => window.__source.threads()[0].id);
   await owner.locator(`#tags .tag[data-id="${firstLocal}"]`).dispatchEvent('click');
-  const editor = owner.locator('.character-editor'); await editor.waitFor();
+  const editor = owner.locator('.character-editor');
+  await owner.locator('.focus-view.on [data-a="tab-info"].on').waitFor();
+  assert.equal(await editor.count(), 0, 'Normal character selection opens the original overview');
+  assert.equal(await owner.locator('.sheet-tabs button').first().getAttribute('data-a'), 'tab-info');
+  assert.equal(await owner.locator('.sheet-tabs button').last().getAttribute('data-a'), 'tab-customize');
+  assert.equal(await owner.locator('.focus-view [data-a="open"]').isVisible(), true, 'Original open-thread action remains primary');
+  await owner.locator('[data-a="tab-customize"]').click();await editor.waitFor();
   const originalLook = await owner.evaluate((id) => JSON.stringify(window.__world.workers.get(id).look), firstLocal);
   await editor.locator('input[name="name"]').fill('');
   await editor.locator('input[name="name"]').pressSequentially('poppy');
@@ -56,7 +62,9 @@ try {
   assert.equal(await owner.locator('.focus-view.on').count(), 0, 'Successful save returns to the office overview');
   // Reopening during the camera return must reverse the transition cleanly.
   await owner.evaluate((id) => window.__focusAgent(id), firstLocal);
-  await editor.waitFor();
+  await owner.locator('.focus-view.on [data-a="tab-info"].on').waitFor();
+  assert.equal(await editor.count(), 0, 'Reopening a customized character returns to Overview');
+  await owner.locator('[data-a="tab-customize"]').click();await editor.waitFor();
   await editor.locator('select[name="hairStyle"]').selectOption('mohawk');
   await editor.locator('select[name="outfit"]').selectOption('hoodie');
   await editor.locator('input[name="shirt"][value="#d35c82"]').check();
