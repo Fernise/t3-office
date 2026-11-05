@@ -6,7 +6,7 @@ import { chromium } from 'playwright';
 const dir = await mkdtemp(join(tmpdir(), 'office-elevator-'));
 process.env.BUILDING_DB = join(dir, 'test.sqlite'); delete process.env.T3_LOCAL_DATA;
 const { createServer } = await import('vite');
-const harness = '<!doctype html><body><p>Original office</p><script type="module">import {travelToFloor,resumeArrival} from "/src/elevator.ts";resumeArrival();window.__travel=travelToFloor;window.addEventListener("office-departure",()=>window.__pullback=true);</script></body>';
+const harness = '<!doctype html><body><p>Original office</p><script type="module">import {travelToFloor,resumeArrival} from "/src/elevator.ts";resumeArrival();window.__travel=travelToFloor;window.addEventListener("office-departure",()=>window.__pullback=true);window.addEventListener("office-arrival-start",()=>window.__arrivalZoom=true);</script></body>';
 const server = await createServer({ server: { host: 'localhost', port: 0 }, logLevel: 'error', plugins: [{ name: 'travel-harness', configureServer(s) { s.middlewares.use((req, res, next) => { if (!new URL(req.url, 'http://local').searchParams.has('harness')) return next(); res.setHeader('Content-Type', 'text/html'); res.end(harness); }); } }] });
 let browser;
 try {
@@ -39,6 +39,32 @@ try {
  assert.ok(Date.now() - reducedStart < 1200);
  await page.locator('.elevator-overlay[data-phase=arrival-loading]').waitFor();
  await page.evaluate(() => window.dispatchEvent(new Event('office-ready'))); await page.locator('.elevator-overlay').waitFor({ state: 'detached' });
+ // A building-entry glide fades across reload without doors or a second arrival zoom.
+ await page.emulateMedia({ reducedMotion: 'no-preference' });
+ await page.evaluate(id => { document.body.classList.add('building-view-open'); void window.__travel(id, { dived: true, background: '#223344' }); }, maya.office.id);
+ await page.locator('.elevator-dive[data-phase=boarding]').waitFor();
+ await page.waitForTimeout(120);
+ const departureOpacity = await page.locator('.elevator-sky').evaluate(el => +getComputedStyle(el).opacity);
+ assert.ok(departureOpacity > 0 && departureOpacity < 1, `Departure fades gradually: opacity ${departureOpacity}`);
+ assert.equal(await page.locator('.elevator-doors').evaluate(el => getComputedStyle(el).display), 'none');
+ assert.equal(await page.evaluate(() => !!window.__pullback), false, 'Dive skips the old departure zoom');
+ await page.waitForURL(url => url.searchParams.get('floor') === maya.office.id);
+ await page.locator('.elevator-dive[data-phase=arrival-loading]').waitFor();
+ assert.equal(await page.locator('.elevator-sky').evaluate(el => getComputedStyle(el).opacity), '1', 'Loading stays covered across navigation');
+ await page.getByRole('button', { name: 'Skip animation', exact: true }).click();
+ assert.equal(await page.locator('.elevator-overlay').count(), 1, 'Dive Skip still waits for readiness');
+ await page.evaluate(() => window.dispatchEvent(new Event('office-ready'))); await page.locator('.elevator-overlay').waitFor({ state: 'detached' });
+ assert.equal(await page.evaluate(() => !!window.__arrivalZoom), false, 'Dive must not add another zoom after landing');
+ // Reveal with a gradual fade when motion is enabled.
+ await page.evaluate(() => { document.body.classList.add('building-view-open'); void window.__travel(null, { dived: true, background: '#223344' }); });
+ await page.waitForURL(url => !url.searchParams.has('floor')); await page.locator('.elevator-dive[data-phase=arrival-loading]').waitFor();
+ await page.evaluate(() => window.dispatchEvent(new Event('office-ready')));
+ await page.waitForTimeout(150);
+ const opacity = await page.locator('.elevator-sky').evaluate(el => +getComputedStyle(el).opacity);
+ assert.ok(opacity > 0 && opacity < 1, `Arrival fades gradually: opacity ${opacity}`);
+ assert.equal(await page.evaluate(() => !!window.__arrivalZoom), false);
+ await page.locator('.elevator-overlay').waitFor({ state: 'detached' });
+ await page.emulateMedia({ reducedMotion: 'reduce' });
  // Invalid destinations never paint the inaccessible floor, even when Skip is used.
  await page.evaluate(id => { void window.__travel(id); }, secret.office.id);
  await page.locator('.elevator-overlay[data-phase=failed]').waitFor(); assert.equal(await page.locator('.elevator-floor').count(), 0);
@@ -63,5 +89,5 @@ try {
  await page.locator('.elevator-overlay').waitFor({ state: 'detached' });
  assert.equal(new URL(page.url()).searchParams.has('floor'), false);
  assert.deepEqual(errors, []);
- console.log('PASS: cutaway/cabin/timing, authorized-only floors, presence privacy, ready-gated arrival, Skip, reduced motion and mid-trip revocation.');
+ console.log('PASS: cutaway/cabin/timing, authorized-only floors, presence privacy, ready-gated arrival, building-entry fade, Skip, reduced motion and mid-trip revocation.');
 } finally { await browser?.close(); await server.close(); await rm(dir, { recursive: true, force: true }); }

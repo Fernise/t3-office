@@ -19,11 +19,13 @@ try{
  const page=await owner.newPage();const errors=[];page.on('pageerror',e=>errors.push(e.message));
  await page.goto(`${base}?harness=1`);await page.locator('#open').click();await page.locator('.building-world[data-rendered=true]').waitFor();
  await page.getByRole('button',{name:'Floors',exact:true}).click(); await page.locator('.building-world-directory button').nth(2).waitFor();assert.equal(await page.getByText('secret_person',{exact:false}).count(),0);
+ await page.waitForFunction(()=>window.__buildingView.pending()===0,null,{timeout:60000});
  assert.equal(await page.evaluate(id=>window.__buildingView.models.children.find(g=>g.userData.floorId===id).getObjectByName('personal-floor').userData.identity.accent,maya.office.id),'rose');
- assert.equal(await page.evaluate(id=>window.__buildingView.models.children.find(g=>g.userData.floorId===id).children.length,quiet.office.id),4,'Presence floor is a solid private volume, without desks or agents');
+ assert.equal(await page.evaluate(id=>{const g=window.__buildingView.models.children.find(g=>g.userData.floorId===id);return g.children.length>0&&g.children.every(o=>o.isLineSegments||(o.isMesh&&o.geometry.type==='BoxGeometry'))&&!g.getObjectByName('personal-floor');},quiet.office.id),true,'Presence floor is a solid private volume: plain blocks only, no baked interior, desks, agents or decor');
+ assert.equal(await page.evaluate(id=>{const g=window.__buildingView.models.children.find(g=>g.userData.floorId===id);let n=0;g.traverse(o=>{if(o.isMesh)n++;});return n>20;},maya.office.id),true,'Shared floors show the real (baked) office');
  await page.waitForTimeout(200);await mkdir('shots',{recursive:true});await page.screenshot({path:'shots/building-world.png',timeout:60000});
  // Project a real front-edge mesh point and click the actual WebGL canvas, not a mock selection hook.
- const point=await page.evaluate(id=>{const v=window.__buildingView;const g=v.models.children.find(g=>g.userData.floorId===id);const p=g.position.clone();p.y+=.38;p.z+=3.95;p.project(v.camera);const r=document.querySelector('.building-world canvas').getBoundingClientRect();return{x:r.left+(p.x+1)/2*r.width,y:r.top+(1-p.y)/2*r.height};},maya.office.id);
+ const point=await page.evaluate(id=>{const v=window.__buildingView;const g=v.models.children.find(g=>g.userData.floorId===id);const p=new (g.position.constructor)(0,g.position.y+.05,8);p.project(v.camera);const r=document.querySelector('.building-world canvas').getBoundingClientRect();return{x:r.left+(p.x+1)/2*r.width,y:r.top+(1-p.y)/2*r.height};},maya.office.id);
  await page.mouse.move(point.x,point.y-35); await page.mouse.down(); await page.mouse.move(point.x,point.y,{steps:5}); await page.mouse.up();
  assert.equal(await page.locator('.building-world').getAttribute('data-selected-floor'),'','Vertical swipe must not select a floor');
  await page.mouse.click(point.x,point.y);await page.waitForFunction(id=>document.querySelector('.building-world').dataset.selectedFloor===id,maya.office.id);

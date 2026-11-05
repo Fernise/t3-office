@@ -33,7 +33,8 @@ function building(root: HTMLElement, floors: Floor[], from: string, to: string) 
   root.style.setProperty('--start', `${start * 76 + 12}px`); root.style.setProperty('--end', `${end * 76 + 12}px`);
   return { start: selected[start]?.index ?? 0, end: selected[end]?.index ?? 0 };
 }
-export async function travelToFloor(id: string | null) {
+/** `dived`: the building view already glided into the floor, so skip the pull-back, ride and doors and fade through `background` instead. */
+export async function travelToFloor(id: string | null, options: { dived?: boolean; background?: string } = {}) {
   if (active) return;
   const current = new URL(location.href); const currentId = current.searchParams.get('source') === 'shared' ? current.searchParams.get('floor') : null;
   if (id === currentId && !current.searchParams.has('view')) return;
@@ -41,6 +42,7 @@ export async function travelToFloor(id: string | null) {
   const version = ++generation;
   const ui = overlay();
   const fromWorld = document.body.classList.contains('building-view-open'); ui.root.classList.toggle('elevator-in-office-world', fromWorld);
+  const dived = !!options.dived && fromWorld; ui.root.classList.toggle('elevator-dive', dived); if (options.background) ui.root.style.setProperty('--dive-bg', options.background);
   let skip = reduced(); let finishWait: (() => void) | undefined; let navigating = false;
   ui.root.classList.toggle('reduced-motion', skip);
   ui.button.onclick = () => { skip = true; ui.root.classList.add('reduced-motion'); finishWait?.(); };
@@ -52,24 +54,27 @@ export async function travelToFloor(id: string | null) {
     if (!destination || !own) throw new Error(T.denied);
     const steps = building(ui.root, floors, currentId ?? own.id, destination.id);
     ui.root.querySelector('output')!.textContent = currentId ? String(steps.start + 1) : T.home;
-    ui.root.dataset.phase = 'pullback'; ui.status.textContent = T.closing;
-    if (!skip) window.dispatchEvent(new Event('office-departure'));
-    await pause(300); if (version !== generation) return ui.close();
-    ui.root.dataset.phase = 'closing'; await pause(280); if (version !== generation) return ui.close();
-    ui.root.dataset.phase = 'moving'; ui.status.textContent = T.moving; window.dispatchEvent(new CustomEvent('office-elevator-move', { detail: destination.id }));
-    const started = performance.now();
-    const counter = setInterval(() => { const progress = Math.min(1, (performance.now() - started) / 850); ui.root.querySelector('output')!.textContent = String(Math.round(steps.start + (steps.end - steps.start) * progress) + 1); }, 90);
-    await pause(850); clearInterval(counter); if (version !== generation) return ui.close();
+    if (!dived) {
+      ui.root.dataset.phase = 'pullback'; ui.status.textContent = T.closing;
+      if (!skip) window.dispatchEvent(new Event('office-departure'));
+      await pause(300); if (version !== generation) return ui.close();
+      ui.root.dataset.phase = 'closing'; await pause(280); if (version !== generation) return ui.close();
+      ui.root.dataset.phase = 'moving'; ui.status.textContent = T.moving; window.dispatchEvent(new CustomEvent('office-elevator-move', { detail: destination.id }));
+      const started = performance.now();
+      const counter = setInterval(() => { const progress = Math.min(1, (performance.now() - started) / 850); ui.root.querySelector('output')!.textContent = String(Math.round(steps.start + (steps.end - steps.start) * progress) + 1); }, 90);
+      await pause(850); clearInterval(counter); if (version !== generation) return ui.close();
+    }
     ui.root.querySelector('output')!.textContent = destination.isOwner ? T.home : String(steps.end + 1);
     ui.root.dataset.phase = 'boarding'; ui.status.textContent = T.opening;
     // Revalidate after the animation; a grant may have been revoked while travelling.
     if (id) await api(`/offices/${encodeURIComponent(id)}`);
     else await api('/session');
     if (version !== generation) return ui.close();
+    if (dived) { await pause(450); if (version !== generation) return ui.close(); }
     const url = new URL(location.href); url.searchParams.delete('view');
     if (id) { url.searchParams.set('source', 'shared'); url.searchParams.set('floor', id); }
     else { url.searchParams.delete('source'); url.searchParams.delete('floor'); }
-    try { sessionStorage.setItem(KEY, JSON.stringify({ path: url.pathname + url.search, at: Date.now(), skip, world: fromWorld })); } catch { /* storage may be disabled */ }
+    try { sessionStorage.setItem(KEY, JSON.stringify({ path: url.pathname + url.search, at: Date.now(), skip, world: fromWorld, dive: dived, background: options.background })); } catch { /* storage may be disabled */ }
     navigating = true; location.assign(url);
   } catch {
     if (version !== generation) return ui.close();
@@ -84,12 +89,13 @@ export function resumeArrival() {
   try { ticket = JSON.parse(sessionStorage.getItem(KEY) ?? 'null'); sessionStorage.removeItem(KEY); } catch { return; }
   if (!ticket || ticket.path !== location.pathname + location.search || typeof ticket.at !== 'number' || Date.now() - ticket.at > 30000 || Date.now() < ticket.at) return;
   active = true; const ui = overlay(); ui.root.classList.toggle('elevator-in-office-world', !!ticket.world);
+  ui.root.classList.toggle('elevator-dive', !!ticket.dive); if (typeof ticket.background === 'string' && /^#[0-9a-f]{3,8}$/i.test(ticket.background)) ui.root.style.setProperty('--dive-bg', ticket.background);
   ui.root.dataset.phase = 'arrival-loading'; ui.root.classList.toggle('reduced-motion', !!ticket.skip || reduced());
   ui.status.textContent = T.loading;
   let ready = false; let skipped = !!ticket.skip || reduced(); let timer: ReturnType<typeof setTimeout> | undefined;
   let fallback: ReturnType<typeof setTimeout> | undefined;
   const cleanup = () => { clearTimeout(timer); clearTimeout(fallback); ui.close(); window.removeEventListener('office-ready', arrive); window.removeEventListener('office-load-error', fail); };
-  const arrive = () => { clearTimeout(fallback); ready = true; if (!skipped) window.dispatchEvent(new Event('office-arrival-start')); ui.root.dataset.phase = 'arrived'; ui.status.textContent = T.arrived; timer = setTimeout(cleanup, skipped ? 0 : 650); };
+  const arrive = () => { clearTimeout(fallback); ready = true; if (!skipped && !ticket.dive) window.dispatchEvent(new Event('office-arrival-start')); ui.root.dataset.phase = 'arrived'; ui.status.textContent = T.arrived; timer = setTimeout(cleanup, skipped ? 0 : 650); };
   const fail = () => cleanup();
   ui.button.onclick = () => { skipped = true; ui.root.classList.add('reduced-motion'); if (ready) cleanup(); };
   fallback = setTimeout(() => { ui.button.textContent = T.back; ui.button.onclick = () => { cleanup(); const home = new URL(location.href); home.searchParams.delete('source'); home.searchParams.delete('floor'); location.assign(home); }; }, 12000);
