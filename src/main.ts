@@ -112,6 +112,7 @@ async function main() {
   installHudFit(document.getElementById('hud')!);
   installOfficeMenu(source, shared, (id) => focusAgent(id, true), {
     canvas, theme,
+    weather: () => ({ state: weather.state, rain: weather.rain, snow: weather.snow, night: cycle.darkness, label: weather.label() }),
     // Only in your own office: while visiting, `source` holds the host's agents, not yours.
     ...(shared ? {} : { agents: () => source.threads().filter((t) => !t.parentId).length }),
     // The live camera sits 60 units back along (sin az cos el, sin el, cos az cos el) from its target (see placeCamera).
@@ -714,6 +715,7 @@ async function main() {
     if (document.body.classList.contains('building-view-open')) {
       source.update(dt); const now = clock.now(); weather.update(dt, now.getHours());
       Object.assign(cycle.weather, { cloud: weather.cloud, rain: weather.rain, snow: weather.snow, flash: weather.flash }); cycle.update(now);
+      sfx.setRain(weather.rain, weather.snow);
       if ((hudT += dt) > .25) { hud!.update(hudT, now, world, source, cycle); hudT = 0; }
       requestAnimationFrame(loop); return;
     }

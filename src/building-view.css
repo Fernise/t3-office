@@ -31,7 +31,13 @@
 .building-world [hidden] { display: none !important; }
 body.building-view-open > #tags, body.building-view-open > #wall, body.building-view-open .office-building-launcher, body.building-view-open .office-home-launcher { visibility: hidden; pointer-events: none; }
 .building-world #hud .receipt, .building-world #hud .pulse, .building-world #hud .ticker { visibility: hidden; pointer-events: none; }
-.building-world[data-controls-open=true] #hud .deck { visibility: hidden; pointer-events: none; }
+/* Controls start folded; expanding them temporarily gives the radio the inspector's space. */
+.building-world:not([data-hud-expanded=true]) #hud { display: none; }
+.building-world[data-hud-expanded=true] > aside { display: none; }
+body.building-view-open .human-labels { display: none; }
+body.building-view-open:not(.building-hud-expanded) :is(.human-panel, .social-focus-badge, .social-checkin, .doorbell-badge, #settings, #costs) { display: none !important; }
+.building-world-weather { display: block; font-size: 12px; color: var(--muted); margin-top: 4px; }
+.building-world [data-action=hud][aria-expanded=true] { outline: 2px solid var(--accent); }
 @media(max-width:700px) { .building-world > header { bottom: 12px; width: calc(100vw - 24px); padding: 10px; gap: 8px; flex-direction: column; align-items: stretch; } .building-world header > div { display: flex; gap: 8px; align-items: center; } .building-world h1 { font-size: 16px; } .building-world header p { display: none; } .building-world nav { gap: 6px; justify-content: center; } .building-world nav button { font-size: 12px; padding: 7px; } .building-world aside { top: auto; bottom: 132px; right: 12px; left: 12px; width: auto; max-height: 45vh; padding: 12px; } .building-world-labels button { width: 120px; font-size: 11px; } .building-world-caption { display:none; } }
 .building-world-caption { display: none; }
 .building-world-invite { margin-top: 14px; width: 100%; }

@@ -39,9 +39,10 @@ try {
  const enter=()=>page.locator('[data-action=enter]').click();
  await open(); await page.waitForFunction(()=>!window.__buildingView.moving());
  for (const size of [{width:1280,height:800},{width:700,height:600},{width:390,height:844}]) {
-  await page.setViewportSize(size);await page.waitForTimeout(300);
+  await page.setViewportSize(size);await page.getByRole('button',{name:'Show controls',exact:true}).click();await page.waitForTimeout(300);
   const labels=await page.locator('.building-world-labels button').evaluateAll(buttons=>buttons.filter(b=>!b.hidden).map(b=>{const r=b.getBoundingClientRect();return {hit:document.elementFromPoint(r.left+r.width/2,r.top+r.height/2)===b,inBounds:r.left>=0&&r.top>=0&&r.right<=innerWidth&&r.bottom<=innerHeight};}));
   assert.ok(labels.length>0,'At least one label stays reachable');assert.ok(labels.every(l=>l.hit&&l.inBounds),'Visible floor labels stay on screen and above no controls');
+  await page.getByRole('button',{name:'Hide controls',exact:true}).click();
  }
  await page.setViewportSize({width:1280,height:800});await select(you.office.id); await enter(); await page.waitForTimeout(200);
  assert.equal(await page.locator('.building-world').evaluate(el=>el.classList.contains('diving')),true);

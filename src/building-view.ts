@@ -1,3 +1,4 @@
+import { BuildingWeather, type BuildingWeatherState } from './building-weather';
 import { placeLabel, type Rect } from './building-labels';
 import { addFloorIdentity } from './floor-identity';
 import { PixelPipeline } from './pixel';
@@ -14,7 +15,7 @@ import { B } from './i18n/building';
 import { locale } from './i18n';
 import { travelToFloor } from './elevator';
 import './building-view.css';
-const T = locale({ en: { title: 'The Building', floors: 'Floors', hint: 'Click a floor to focus. Drag to turn the building.', all: 'Whole building', close: 'Back to office', friends: 'Friends & invitations', enter: 'Enter this office', choose: 'Pick a floor', chooseHint: 'Every office is a place you can visit. Select one in the building or directory to look closer.', privacy: 'Only your office and floors shared with you appear here.', own: 'Your office', home: 'Home floor', presence: 'Presence only · interior private', active: 'Activity shared', ownerScope: 'Your office · invited access only', moment: 'Owner-published moment', offline: 'Offline', online: 'Online', agents: 'coworkers', loading: 'Opening your building…', error: 'Building unavailable. Floor details have been cleared.', retry: 'Try again', local: 'Your office works without an account. Invite friends from the in-office menu to add their floors.', focus: 'Floor focus', count: 'offices', limited: 'The 3D view shows a section of this tall building. Choose any office in the directory.', preview: 'Stylized office previews · no tasks or transcripts' }, de: { title: 'Das Gebäude', floors: 'Etagen', hint: 'Etage zum Fokussieren anklicken. Ziehen zum Drehen.', all: 'Ganzes Gebäude', close: 'Zurück zum Büro', friends: 'Freunde & Einladungen', enter: 'Dieses Büro betreten', choose: 'Wähle eine Etage', chooseHint: 'Wähle ein Büro im Gebäude oder Verzeichnis, um es näher anzusehen.', privacy: 'Nur dein Büro und mit dir geteilte Etagen erscheinen hier.', own: 'Dein Büro', home: 'Eigene Etage', presence: 'Nur Anwesenheit · Innenraum privat', active: 'Aktivität geteilt', ownerScope: 'Dein Büro · nur eingeladener Zugriff', moment: 'Vom Besitzer veröffentlichter Moment', offline: 'Offline', online: 'Online', agents: 'Kollegen', loading: 'Dein Gebäude wird geöffnet…', error: 'Gebäude nicht verfügbar. Etageninformationen wurden entfernt.', retry: 'Erneut versuchen', local: 'Dein Büro funktioniert ohne Konto. Lade über das Büromenü Freunde ein, um ihre Etagen hinzuzufügen.', focus: 'Etagenansicht', count: 'Büros', limited: 'Die 3D-Ansicht zeigt einen Abschnitt dieses hohen Gebäudes. Wähle jedes Büro im Verzeichnis.', preview: 'Stilisierte Büroansichten · keine Aufgaben oder Gespräche' } });
+const T = locale({ en: { title: 'The Building', showControls: 'Show controls', hideControls: 'Hide controls', floors: 'Floors', hint: 'Click a floor to focus. Drag to turn the building.', all: 'Whole building', close: 'Back to office', friends: 'Friends & invitations', enter: 'Enter this office', choose: 'Pick a floor', chooseHint: 'Every office is a place you can visit. Select one in the building or directory to look closer.', privacy: 'Only your office and floors shared with you appear here.', own: 'Your office', home: 'Home floor', presence: 'Presence only · interior private', active: 'Activity shared', ownerScope: 'Your office · invited access only', moment: 'Owner-published moment', offline: 'Offline', online: 'Online', agents: 'coworkers', loading: 'Opening your building…', error: 'Building unavailable. Floor details have been cleared.', retry: 'Try again', local: 'Your office works without an account. Invite friends from the in-office menu to add their floors.', focus: 'Floor focus', count: 'offices', limited: 'The 3D view shows a section of this tall building. Choose any office in the directory.', preview: 'Stylized office previews · no tasks or transcripts' }, de: { title: 'Das Gebäude', showControls: 'Bedienelemente anzeigen', hideControls: 'Bedienelemente minimieren', floors: 'Etagen', hint: 'Etage zum Fokussieren anklicken. Ziehen zum Drehen.', all: 'Ganzes Gebäude', close: 'Zurück zum Büro', friends: 'Freunde & Einladungen', enter: 'Dieses Büro betreten', choose: 'Wähle eine Etage', chooseHint: 'Wähle ein Büro im Gebäude oder Verzeichnis, um es näher anzusehen.', privacy: 'Nur dein Büro und mit dir geteilte Etagen erscheinen hier.', own: 'Dein Büro', home: 'Eigene Etage', presence: 'Nur Anwesenheit · Innenraum privat', active: 'Aktivität geteilt', ownerScope: 'Dein Büro · nur eingeladener Zugriff', moment: 'Vom Besitzer veröffentlichter Moment', offline: 'Offline', online: 'Online', agents: 'Kollegen', loading: 'Dein Gebäude wird geöffnet…', error: 'Gebäude nicht verfügbar. Etageninformationen wurden entfernt.', retry: 'Erneut versuchen', local: 'Dein Büro funktioniert ohne Konto. Lade über das Büromenü Freunde ein, um ihre Etagen hinzuzufügen.', focus: 'Etagenansicht', count: 'Büros', limited: 'Die 3D-Ansicht zeigt einen Abschnitt dieses hohen Gebäudes. Wähle jedes Büro im Verzeichnis.', preview: 'Stilisierte Büroansichten · keine Aufgaben oder Gespräche' } });
 const esc = (v: string) => v.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
 let closeCurrent: (() => void) | undefined;
 const RETURN_KEY = 'office.building-return.v1';
@@ -33,6 +34,8 @@ export interface BuildingRenderHost {
   sync(scene: THREE.Scene, sun: THREE.DirectionalLight, hemi: THREE.HemisphereLight): void;
   /** Your own agents on this screen (local only, never sent anywhere), so your floor shows them even when not sharing. */
   agents?(): number;
+  /** Local environment only; never read from or published to a shared office. */
+  weather?(): BuildingWeatherState;
   /** The live office camera: where it looks, its angle/tilt (radians) and vertical half-size, so entering can land on exactly that view. */
   view?(): { target: THREE.Vector3; az: number; el: number; half: number };
 }
@@ -41,7 +44,7 @@ export async function openBuildingView(openFriends: () => void, host?: BuildingR
   let returnView = readReturn();
   const previous = document.activeElement as HTMLElement | null;
   const root = document.createElement('section'); root.className = 'building-world'; root.setAttribute('role', 'dialog'); root.setAttribute('aria-modal', 'true'); root.setAttribute('aria-label', T.title);
-  root.innerHTML = `<header><div><small>T3 OFFICE</small><h1>${T.title}</h1><p>${T.hint}</p></div><nav><button data-action="all">${T.all}</button><button data-action="directory">${T.floors}</button><button data-action="close">${T.close} ×</button></nav></header><div class="building-world-stage"><canvas aria-label="${T.title}"></canvas><svg class="building-world-leaders" aria-hidden="true"></svg><div class="building-world-labels"></div><p class="building-world-caption">${T.preview}</p></div><aside><p class="building-world-status" role="status" aria-live="polite">${T.loading}</p><div class="building-world-detail"></div><h2>${T.all}</h2><p class="building-world-privacy">${T.privacy}</p><div class="building-world-directory"></div><button class="building-world-invite" data-action="friends">${T.friends}</button></aside>`;
+  root.innerHTML = `<header><div><small>T3 OFFICE</small><h1>${T.title}</h1><span class="building-world-weather" hidden></span><p>${T.hint}</p></div><nav><button data-action="hud" aria-label="${T.showControls}" title="${T.showControls}" aria-expanded="false" aria-controls="hud">☰</button><button data-action="all">${T.all}</button><button data-action="directory">${T.floors}</button><button data-action="close">${T.close} ×</button></nav></header><div class="building-world-stage"><canvas aria-label="${T.title}"></canvas><svg class="building-world-leaders" aria-hidden="true"></svg><div class="building-world-labels"></div><p class="building-world-caption">${T.preview}</p></div><aside><p class="building-world-status" role="status" aria-live="polite">${T.loading}</p><div class="building-world-detail"></div><h2>${T.all}</h2><p class="building-world-privacy">${T.privacy}</p><div class="building-world-directory"></div><button class="building-world-invite" data-action="friends">${T.friends}</button></aside>`;
   document.body.append(root); document.body.classList.add('building-view-open');
   let closed = false; let raf = 0; let poll: ReturnType<typeof setInterval> | undefined;
   let floors: Floor[] = []; let selected: string | null = null; let busy = false; let signature = ''; let windowStart = 0;
@@ -56,10 +59,25 @@ export async function openBuildingView(openFriends: () => void, host?: BuildingR
   const leaderLayer = root.querySelector<SVGSVGElement>('.building-world-leaders')!;
   const directory = root.querySelector<HTMLElement>('.building-world-directory')!;
   const detail = root.querySelector<HTMLElement>('.building-world-detail')!;
+  const hudButton = root.querySelector<HTMLButtonElement>('[data-action=hud]')!;
+  const weatherReadout = root.querySelector<HTMLElement>('.building-world-weather')!;
+  const minimized = new Map<HTMLElement, boolean>();
+  // Native modal dialogs must leave the top layer; minimizing never leaves a social session.
+  for (const dialog of document.querySelectorAll<HTMLDialogElement>('dialog.office-friends-dialog[open], dialog.social-office[open], dialog.doorbell-office[open]')) dialog.close();
+  function setHudExpanded(expanded: boolean) {
+    root.dataset.hudExpanded = String(expanded); document.body.classList.toggle('building-hud-expanded', expanded);
+    hudButton.setAttribute('aria-expanded', String(expanded)); hudButton.setAttribute('aria-label', expanded ? T.hideControls : T.showControls); hudButton.title = expanded ? T.hideControls : T.showControls;
+    for (const el of document.querySelectorAll<HTMLElement>('#hud, .human-panel, .social-focus-badge, .social-checkin, .doorbell-badge, #settings, #costs')) {
+      if (!minimized.has(el)) minimized.set(el, el.inert);
+      el.inert = expanded ? minimized.get(el)! : true;
+    }
+  }
+  setHudExpanded(false);
   const theme = host?.theme ?? THEMES.find(t => t.id === settings.get('theme')) ?? THEMES[0];
   for (const [key, value] of Object.entries({ paper: theme.hud.paper, ink: theme.hud.ink, muted: theme.hud.muted, edge: theme.hud.edge, shadow: theme.hud.shadow, font: theme.hud.font, accent: theme.hud.accent, 'tag-bg': theme.hud.tagBg, 'tag-ink': theme.hud.tagInk })) root.style.setProperty(`--${key}`, value);
   const scene = new THREE.Scene(); scene.background = new THREE.Color(theme.bg);
   const camera = new THREE.OrthographicCamera(-15, 15, 15, -15, .1, 400);
+  const outside = new BuildingWeather(scene);
   const fallback = host ? undefined : new PixelPipeline(canvas, 2, theme.post);
   const hemi = new THREE.HemisphereLight(theme.lights.sky, theme.lights.ground, theme.lights.hemi); scene.add(hemi);
   const sun = new THREE.DirectionalLight(theme.lights.sun, theme.lights.sunIntensity); sun.position.set(...theme.lights.sunDir).multiplyScalar(40); sun.castShadow = true; sun.shadow.mapSize.set(1024, 1024); Object.assign(sun.shadow.camera, { left: -45, right: 45, top: 45, bottom: -45, near: 1, far: 220 }); sun.shadow.bias = -.0004; sun.shadow.normalBias = .03; scene.add(sun, sun.target);
@@ -99,7 +117,7 @@ export async function openBuildingView(openFriends: () => void, host?: BuildingR
     rememberView();
     const live = host?.view?.(); const y = rowY.get(id);
     root.classList.add('diving'); root.tabIndex = -1; root.focus();
-    for (const controls of root.querySelectorAll<HTMLElement>('header, aside, .building-world-labels')) controls.inert = true;
+    for (const controls of root.querySelectorAll<HTMLElement>(':scope > header, :scope > aside, .building-world-labels')) controls.inert = true;
     if (!live || y === undefined || motion.matches) return done();
     root.dataset.directoryOpen = 'false'; root.dataset.controlsOpen = 'false'; zoom = 1;
     for (const ring of rings.values()) ring.visible = false;
@@ -114,7 +132,7 @@ export async function openBuildingView(openFriends: () => void, host?: BuildingR
   function cancelDive() {
     if (!root.classList.contains('diving')) return;
     root.classList.remove('diving'); tween.dive = undefined;
-    for (const controls of root.querySelectorAll<HTMLElement>('header, aside, .building-world-labels')) controls.inert = false;
+    for (const controls of root.querySelectorAll<HTMLElement>(':scope > header, :scope > aside, .building-world-labels')) controls.inert = false;
     if (selected && floors.some(f => f.id === selected)) select(selected, false); else fit();
     root.querySelector<HTMLButtonElement>('[data-action=close]')!.focus();
   }
@@ -153,7 +171,7 @@ export async function openBuildingView(openFriends: () => void, host?: BuildingR
     detail.innerHTML = f ? `<small>${T.focus}</small><h2>${esc(f.name)}</h2><p>${esc(f.ownerName)}</p><p>${f.online ? T.online : T.offline} · ${f.isOwner ? T.ownerScope : f.scope === 'presence' ? T.presence : T.active}</p>${f.scope !== 'presence' ? `<p>${f.isOwner ? drawnAgents(f) : f.agentCount} ${T.agents}</p><p>${f.areas.map(a => `${B.areaLabels[a.area]} (${a.count})`).join(' · ')}</p>` : ''}${f.moment && f.scope !== 'presence' ? `<p class="building-world-moment"><small>★ ${T.moment}</small>${esc(f.moment.title)}</p>` : ''}<button class="building-world-enter" data-action="enter">${f.isOwner ? B.own : T.enter}</button>` : `<h2>${T.choose}</h2><p>${T.chooseHint}</p>`;
   }
   function fit(resetDirectory: boolean | Event = true, instant = false, duration = DURATION) {
-    if (resetDirectory !== false) root.dataset.directoryOpen = 'false';
+    if (resetDirectory !== false) { setHudExpanded(false); root.dataset.directoryOpen = 'false'; }
     const tall = rowY.size * STOREY;
     selected = null; zoom = 1; wanted.set(0, Math.max(1.5, tall / 2 - 1.5), 0);
     needV = Math.max(14, tall / 2 + 10); needH = 27; placeLamps(wanted.y);
@@ -163,6 +181,7 @@ export async function openBuildingView(openFriends: () => void, host?: BuildingR
   }
   function select(id: string, resetScroll = true, instant = false) {
     const index = floors.findIndex(f => f.id === id); if (index < 0) return;
+    if (resetScroll) setHudExpanded(false);
     if (!rowY.has(id)) { windowStart = Math.max(0, index - 10); build(false); }
     selected = id; zoom = 1; wanted.set(0, (rowY.get(id) ?? 0) + 1.6, 0); needV = 9; needH = 21; placeLamps(wanted.y);
     if (width < 700) wanted.y -= needV * .6;
@@ -274,6 +293,9 @@ export async function openBuildingView(openFriends: () => void, host?: BuildingR
     window.removeEventListener('office-travel-cancel', cancelDive);
     window.removeEventListener('office-elevator-move', moveCabin); window.removeEventListener('office-building-close', close); window.removeEventListener('pagehide', close); window.removeEventListener('office-departure', fit);
     identityDisposals.splice(0).forEach(dispose=>dispose());
+    outside.dispose();
+    for (const [el, inert] of minimized) el.inert = inert;
+    document.body.classList.remove('building-hud-expanded');
     fallback?.dispose(); sun.shadow.map?.dispose(); unit.dispose(); leaves.dispose(); edges.dispose(); ringMaterial.dispose();
     // Baked floors stay cached for the next visit (shared geometry); they are released with the page.
     // Cached toon materials and the host canvas/pipeline belong to the original office.
@@ -283,7 +305,7 @@ export async function openBuildingView(openFriends: () => void, host?: BuildingR
     if (import.meta.env.DEV) delete (window as unknown as { __buildingView?: unknown }).__buildingView;
     root.remove(); document.body.classList.remove('building-view-open'); previous?.focus();
   }
-  if (import.meta.env.DEV) (window as unknown as { __buildingView: unknown }).__buildingView = { camera, models, selected: () => selected, pending: () => pending.length, moving: () => !tween.done || tween.waitForBakes };
+  if (import.meta.env.DEV) (window as unknown as { __buildingView: unknown }).__buildingView = { camera, models, weather: outside, selected: () => selected, pending: () => pending.length, moving: () => !tween.done || tween.waitForBakes };
   const moveCabin = (event: Event) => { const id = (event as CustomEvent<string>).detail; if (rowY.has(id)) cabinTarget = rowY.get(id)!; };
   window.addEventListener('office-travel-cancel', cancelDive);
   window.addEventListener('office-elevator-move', moveCabin);
@@ -293,7 +315,7 @@ export async function openBuildingView(openFriends: () => void, host?: BuildingR
     const button = (event.target as HTMLElement).closest<HTMLButtonElement>('button'); if (!button) return;
     if (button.dataset.floor) return select(button.dataset.floor);
     const action = button.dataset.action;
-    if (action === 'close') close(); else if (action === 'all') fit(); else if (action === 'directory') { root.dataset.directoryOpen = String(root.dataset.directoryOpen !== 'true'); paintSelection(); } else if (action === 'retry') void refresh();
+    if (action === 'hud') setHudExpanded(root.dataset.hudExpanded !== 'true'); else if (action === 'close') close(); else if (action === 'all') fit(); else if (action === 'directory') { setHudExpanded(false); root.dataset.directoryOpen = String(root.dataset.directoryOpen !== 'true'); paintSelection(); } else if (action === 'retry') void refresh();
     else if (action === 'friends') { close(); openFriends(); }
     else if (action === 'enter') { const f = floors.find(f => f.id === selected); if (!f || root.classList.contains('diving')) return; const params = new URLSearchParams(location.search); const here = params.get('source') === 'shared' ? params.get('floor') === f.id : f.isOwner; dive(f.id, () => { if (here) close(); else void travelToFloor(f.isOwner ? null : f.id, { dived: true, background: (THEMES.find(t => t.id === f.appearance?.theme) ?? theme).bg }); }); }
   });
@@ -317,7 +339,7 @@ export async function openBuildingView(openFriends: () => void, host?: BuildingR
     if (!tween.done && tween.angles) { yaw = tween.fromYaw + (tween.toYaw - tween.fromYaw) * e; el = tween.fromEl + (tween.toEl - tween.fromEl) * e; }
     else { yaw += (goalYaw - yaw) * k; if (!tween.dive) el += (EL - el) * k; }
     // With the side panel open on wide screens, centre the building in the space left of it.
-    const aside = root.querySelector('aside'); const panel = root.dataset.controlsOpen === 'true' && width >= 900 && aside ? aside.getBoundingClientRect().width + 24 : 0;
+    const aside = root.querySelector('aside'); const panel = root.dataset.controlsOpen === 'true' && root.dataset.hudExpanded !== 'true' && width >= 900 && aside ? aside.getBoundingClientRect().width + 24 : 0;
     // Fit both the needed height and the needed width (in the space left of the panel) of the ortho view.
     const fitHalf = Math.max(needV, needH * (width / Math.max(320, width - panel)) / Math.max(.3, width / height));
     if (!tween.done) half = tween.fromHalf + (fitHalf * zoom - tween.fromHalf) * e; else if (tween.snap) half = fitHalf * zoom; else half += (fitHalf * zoom - half) * k;
@@ -332,6 +354,9 @@ export async function openBuildingView(openFriends: () => void, host?: BuildingR
     const next = pending.shift(); if (next && next.group.parent) { next.group.getObjectByName('placeholder')?.removeFromParent(); furnish(next.group, next.id, next.appearance, next.demand, next.agents); }
     if (cabin) { cabinY += (cabinTarget + 1.3 - cabinY) * k; cabin.position.y = cabinY + (cabin.userData.off ?? 0); }
     host?.sync(scene, sun, hemi);
+    const sky = host?.weather?.(); outside.update(dt, sky, camera, motion.matches);
+    root.dataset.weather = sky?.state ?? 'clear'; weatherReadout.hidden = !sky;
+    if (sky && weatherReadout.textContent !== sky.label) weatherReadout.textContent = sky.label;
     // Seen from outside, a dark theme (boiler) still needs some sky light to read as a building.
     hemi.intensity = Math.max(hemi.intensity, .9);
     // The office fog is tuned for the close interior camera; the building camera sits much further out and would be swallowed by it.
