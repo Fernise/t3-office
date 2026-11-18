@@ -17,13 +17,16 @@ export async function cloudActivity(ctx:AuthContext):Promise<Response|null>{
  if(path==='/characters'&&method==='GET'){const office=await sql(`SELECT o.*,u.name ownerName,${profileProjection} FROM offices o JOIN users u ON u.id=o.owner WHERE o.owner=? AND ${ctx.live()}`,user.id).first<Office>();if(!office)fail(401,'Session expired.');return reply(200,{characters:activitySnapshot(office,user).agents});}
  if(path==='/publisher-tokens'&&method==='GET')return reply(200,{tokens:(await sql(`SELECT id,expires expiresAt FROM publisher_tokens WHERE user=? AND expires>? AND ${ctx.live()}`,user.id,Date.now()).all()).results});
  if(!['POST','DELETE'].includes(method))fail(405,'Method not allowed.');
- const epoch=path==='/publish'?await sql(`SELECT epoch FROM offices WHERE owner=? AND ${ctx.live()}`,user.id).first<{epoch:number}>():null;
+ const epoch=path==='/publish'?await sql(`SELECT epoch,agents,updated FROM offices WHERE owner=? AND ${ctx.live()}`,user.id).first<{epoch:number;agents:string;updated:number|null}>():null;
  const input=await authorizedInput(ctx);
  if(path==='/publish'&&method==='POST'){
   if(!Array.isArray(input.agents)||input.agents.length>24)fail(400,'Publish up to24 agents.');const seen=new Set<string>();
   const agents=input.agents.map((v,i)=>{if(!v||typeof v!=='object'||Array.isArray(v))fail(400,'Invalid agent.');const a=v as Record<string,unknown>,id=visibleText(a.id,100);if(!/^[-\w]+$/.test(id)||seen.has(id)||!['claude','codex','cursor','gemini'].includes(String(a.provider))||!['running','waiting','idle','failed','completed'].includes(String(a.status)))fail(400,'Invalid or duplicate agent.');seen.add(id);return{id,name:`Agent ${i+1}`,provider:a.provider,status:a.status};});
   const rate=await sql(`INSERT INTO publish_rate SELECT ?,?,1 WHERE ${ctx.live()} AND EXISTS(SELECT 1 FROM offices WHERE owner=? AND paused=0 AND epoch=?) ON CONFLICT(user) DO UPDATE SET count=CASE WHEN publish_rate.window=excluded.window THEN count+1 ELSE 1 END,window=excluded.window RETURNING count`,user.id,Math.floor(Date.now()/1000),user.id,epoch?.epoch??-1).first<{count:number}>();if(!rate)fail(409,'Publishing paused or superseded.');if(rate.count>5)fail(429,'Publish at a gentle pace.');
-  const result=await sql(`UPDATE offices SET agents=?,updated=? WHERE owner=? AND paused=0 AND epoch=? AND ${ctx.live()}`,JSON.stringify(agents),Date.now(),user.id,epoch?.epoch??-1).run();if(!result.meta.changes)fail(409,'Publishing paused, superseded or credential revoked.');return reply(200,{ok:true,agentCount:agents.length});
+  const result=await sql(`UPDATE offices SET agents=?,updated=? WHERE owner=? AND paused=0 AND epoch=? AND ${ctx.live()}`,JSON.stringify(agents),Date.now(),user.id,epoch?.epoch??-1).run();if(!result.meta.changes)fail(409,'Publishing paused, superseded or credential revoked.');
+  // Only a fresh previous snapshot is a trustworthy baseline: first publish, reconnect or an offline gap never alerts.
+  ctx.notify?.(user,epoch&&epoch.updated!==null&&Date.now()-epoch.updated<45000?JSON.parse(epoch.agents):null,agents.map(a=>({id:a.id,status:String(a.status)})),epoch?.epoch??-1,ctx.live);
+  return reply(200,{ok:true,agentCount:agents.length});
  }
  if(ctx.publisher)fail(401,'Publish-only credential.');
  if(path==='/office'&&method==='POST'){

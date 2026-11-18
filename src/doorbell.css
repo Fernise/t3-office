@@ -9,3 +9,5 @@
 .doorbell-office article button{margin:6px 8px 0 0;}.doorbell-office button:disabled{opacity:.5;cursor:wait;}.doorbell-office button:focus-visible,.doorbell-badge:focus-visible{outline:3px solid var(--accent);outline-offset:3px;}
 .doorbell-badge{position:fixed;right:16px;bottom:16px;z-index:9700;font:15px 'Pixelify Sans',monospace;max-width:calc(100vw - 32px);}
 .doorbell-badge[hidden]{display:none;} @media(max-width:600px){.doorbell-office{padding:18px;font-size:16px;}.doorbell-office h1{font-size:25px;}}
+
+.doorbell-settings fieldset { border:0; padding:0; margin:0; min-inline-size:0; }

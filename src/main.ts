@@ -40,6 +40,7 @@ import { showDemoBar } from './demobar';
 import { SharedSource } from './sharedsource';
 import { installOfficeMenu } from './officemenu';
 import { installHudFit } from './hud-fit';
+import { installCompanion } from './companion';
 
 async function main() {
   const params = new URLSearchParams(location.search);
@@ -179,6 +180,9 @@ async function main() {
     if (world.workers.has(id) || isBoss(id)) focusAgent(id);
   };
   const inspector = new AgentInspector(source, world, () => clock.now(), shared ? undefined : new CharacterEditor(source, world, () => { closeFocus(); homeView(); hud!.toast(B.characterSaved); window.dispatchEvent(new CustomEvent('office-onboarding-progress',{detail:{type:'character-saved'}})); }));
+  // Optional status companion (HUD button). While it covers the scene the loop below skips drawing, like the building view.
+  const companion = installCompanion(source, { shared, demo: !t3 && !shared, focusAgent: open, freshness: t3 ? () => ({ updatedAt: t3!.fetchedAt, offline: !!t3!.error }) : undefined });
+  if (params.get('companion') === '1') window.addEventListener('office-ready', () => companion.open(), { once: true });
   const tagMode = () => (settings.get('tags') === 'auto' ? (theme.tagMode ?? 'full') : (settings.get('tags') as 'full' | 'quiet'));
   const tags = new Tags(tagMode(), (id) => {
     noteClick({ kind: 'agent', id, name: '' });
@@ -712,7 +716,7 @@ async function main() {
     const t = performance.now();
     const dt = Math.min(0.05, (t - last) / 1000);
     last = t;
-    if (document.body.classList.contains('building-view-open')) {
+    if (document.body.classList.contains('building-view-open') || document.body.classList.contains('companion-open')) {
       source.update(dt); const now = clock.now(); weather.update(dt, now.getHours());
       Object.assign(cycle.weather, { cloud: weather.cloud, rain: weather.rain, snow: weather.snow, flash: weather.flash }); cycle.update(now);
       sfx.setRain(weather.rain, weather.snow);

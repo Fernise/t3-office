@@ -67,6 +67,8 @@ export interface AgentSource {
   totals(): { runs: number; tokens: number; cost: number; queued: number };
   /** the orchestrator thread the boss character stands for, if the source knows one */
   boss?(): Thread | null;
+  /** Optional data-freshness contract: epoch ms of the last successful read, and whether the source is currently unreachable. Absent = always live (demo). */
+  freshness?(): { updatedAt: number; offline: boolean };
   /** the latest part of a thread's conversation, oldest first; rejects when the thread can't be read */
   transcript?(id: string): Promise<TranscriptItem[]>;
 }

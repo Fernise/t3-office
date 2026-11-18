@@ -1,0 +1,38 @@
+import { locale } from './index';
+/** "App & alerts" dialog, update banner and notification texts. */
+export const S = locale({
+  en: {
+    title: 'App & alerts', close: 'Close',
+    appHead: 'Install app', installed: 'T3 Office is installed on this device.', installBtn: 'Install T3 Office',
+    installIos: 'On iPhone or iPad: tap Share, then “Add to Home Screen”.', installMenu: 'Use your browser’s menu: “Install app” or “Add to Home Screen”.', installInsecure: 'Installing needs a secure (HTTPS or localhost) address.',
+    onlineNote: 'Live monitoring needs a connection. Offline, only a connection notice is available; activity snapshots are never cached.',
+    updateHead: 'Updates', updateReady: 'A new version is ready.', reload: 'Reload to update', upToDate: 'No update is currently waiting.', updateBanner: 'A new version of T3 Office is ready.', later: 'Later',
+    alertsHead: 'Alerts', alertsIntro: 'Optional. Get a short, generic notice when one of your agents needs attention. Notices never include task titles, paths or prompts.',
+    finishedLabel: 'Also tell me when an agent finishes',
+    on: 'Turn on alerts', off: 'Turn off alerts',
+    stateOn: 'Alerts are on for this account on this device.', stateOnForeground: 'Alerts are on, but only while T3 Office is open (background alerts are not available on this server or browser).', stateOff: 'Alerts are off.',
+    unsupported: 'This browser or address cannot show alerts. Use a current browser over HTTPS.', iosNeedsInstall: 'On iPhone or iPad, add T3 Office to your Home Screen first, then open it from there to enable alerts.',
+    denied: 'Notifications are blocked for this site. Allow them in your browser’s site settings, then try again.', dismissed: 'Permission was not granted, so alerts stay off.',
+    signedOut: 'Sign in first (Friends & characters menu) so alerts belong to your account.', accountChanged: 'Alerts were turned off because the signed-in account changed.',
+    failed: 'Alerts could not be turned on. Please try again.', working: 'Working…',
+    scopeNote: 'Background alerts cover your own office. Shared offices notify only while this page is open and only if you currently have activity access. Alerts are rate-limited and never sent from the first snapshot or a reconnect.',
+    notices: { attention: 'An agent needs attention', finished: 'An agent finished' },
+  },
+  de: {
+    title: 'App & Hinweise', close: 'Schließen',
+    appHead: 'App installieren', installed: 'T3 Office ist auf diesem Gerät installiert.', installBtn: 'T3 Office installieren',
+    installIos: 'Auf iPhone oder iPad: „Teilen“ tippen, dann „Zum Home-Bildschirm“.', installMenu: 'Nutze das Browsermenü: „App installieren“ oder „Zum Startbildschirm hinzufügen“.', installInsecure: 'Zum Installieren ist eine sichere Adresse (HTTPS oder localhost) nötig.',
+    onlineNote: 'Live-Überwachung braucht eine Verbindung. Offline zeigt die App nur einen Hinweis; es werden keine Bürodaten auf dem Gerät gespeichert.',
+    updateHead: 'Updates', updateReady: 'Eine neue Version ist bereit.', reload: 'Zum Aktualisieren neu laden', upToDate: 'Derzeit wartet kein Update.', updateBanner: 'Eine neue Version von T3 Office ist bereit.', later: 'Später',
+    alertsHead: 'Hinweise', alertsIntro: 'Optional. Kurze, allgemeine Hinweise, wenn einer deiner Agenten Aufmerksamkeit braucht. Nie mit Aufgabentiteln, Pfaden oder Prompts.',
+    finishedLabel: 'Auch melden, wenn ein Agent fertig ist',
+    on: 'Hinweise einschalten', off: 'Hinweise ausschalten',
+    stateOn: 'Hinweise sind für dieses Konto auf diesem Gerät an.', stateOnForeground: 'Hinweise sind an, aber nur solange T3 Office geöffnet ist (Hintergrundhinweise gibt es auf diesem Server oder Browser nicht).', stateOff: 'Hinweise sind aus.',
+    unsupported: 'Dieser Browser oder diese Adresse kann keine Hinweise zeigen. Nutze einen aktuellen Browser über HTTPS.', iosNeedsInstall: 'Auf iPhone oder iPad zuerst T3 Office zum Home-Bildschirm hinzufügen und von dort öffnen.',
+    denied: 'Benachrichtigungen sind für diese Seite blockiert. Erlaube sie in den Website-Einstellungen deines Browsers und versuche es erneut.', dismissed: 'Die Erlaubnis wurde nicht erteilt, Hinweise bleiben aus.',
+    signedOut: 'Melde dich zuerst an (Menü Freunde & Figuren), damit Hinweise zu deinem Konto gehören.', accountChanged: 'Hinweise wurden ausgeschaltet, weil sich das angemeldete Konto geändert hat.',
+    failed: 'Hinweise konnten nicht eingeschaltet werden. Bitte versuche es erneut.', working: 'Einen Moment…',
+    scopeNote: 'Hintergrundhinweise betreffen dein eigenes Büro. Geteilte Büros melden nur bei geöffneter Seite und nur mit aktuellem Aktivitätszugriff. Hinweise sind begrenzt und kommen nie vom ersten Stand oder nach einem Wiederverbinden.',
+    notices: { attention: 'Ein Agent braucht Aufmerksamkeit', finished: 'Ein Agent ist fertig' },
+  },
+});

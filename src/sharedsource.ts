@@ -13,6 +13,8 @@ export class SharedSource implements AgentSource {
   private stopped = false;
   private teamNames: string[] = [];
   private disconnected = false;
+  private okAt = Date.now();
+  private publishedOnline = false;
 
   constructor(private officeId: string) {}
 
@@ -26,6 +28,7 @@ export class SharedSource implements AgentSource {
 
   threads() { return this.list; }
   teams() { return this.teamNames; }
+  freshness() { return { updatedAt: this.okAt, offline: this.disconnected || !this.publishedOnline }; }
   subscribe(fn: (e: SourceEvent) => void) { this.listeners.push(fn); }
   totals() { return { runs: 0, tokens: 0, cost: 0, queued: this.list.filter((t) => t.status === 'waiting').length }; }
   private emit(e: SourceEvent) { this.listeners.forEach((fn) => fn(e)); }
@@ -39,7 +42,9 @@ export class SharedSource implements AgentSource {
       if (!Array.isArray(snap.agents)) throw new Error('Invalid shared office snapshot.');
       if (this.hasSnapshot && JSON.stringify(this.appearance) !== JSON.stringify(snap.office.appearance)) { location.reload(); return; }
       this.appearance = snap.office.appearance;
-      this.hasSnapshot = true;
+      this.hasSnapshot = true; this.publishedOnline = snap.office.online;
+      // The server's online flag decides publication freshness; local read time avoids phone/server clock skew.
+      this.okAt = Date.now();
       if (this.disconnected) { location.reload(); return; }
       if (!snap.agents.length && this.list.length) {
         // A pause/offline snapshot must clear old actors and inspector history, not animate them leaving.

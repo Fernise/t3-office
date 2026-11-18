@@ -1,0 +1,3 @@
+CREATE TABLE push_subscriptions(id TEXT PRIMARY KEY,endpoint TEXT NOT NULL UNIQUE,user TEXT NOT NULL REFERENCES users(id),session TEXT NOT NULL,p256dh TEXT NOT NULL,auth TEXT NOT NULL,finished INTEGER NOT NULL DEFAULT 0,created INTEGER NOT NULL);
+CREATE INDEX push_user ON push_subscriptions(user);
+CREATE TABLE push_state(user TEXT PRIMARY KEY REFERENCES users(id),last INTEGER NOT NULL,kind TEXT NOT NULL DEFAULT 'attention');

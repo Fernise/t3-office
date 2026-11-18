@@ -42,6 +42,24 @@ Presence-only friends see online/offline state without names, work areas, agent 
 
 Accounts, grants, office character labels and snapshots persist in ignored `.local/building.sqlite`; use `BUILDING_DB` to select another path. Local-only aliases are in browser storage. Passwords use salted scrypt, and credentials are stored hashed. There is no email or account recovery yet. Profile/office names are visible to accepted visitors, so choose suitable names.
 
+## Agent companion on your phone
+
+Choose **Agents** in the original office HUD for a compact summary of running, waiting, failed, completed and idle agents. Filter by status, tap an agent for details, or choose **Show in office**. **Back to office** restores the full scene. The 3D renderer pauses while the companion covers it; music and status updates continue. Connection freshness is shown, and offline lists clear rather than pretending that old activity is current.
+
+Simulated data is explicitly labeled **Demo**. To monitor a computer while away, sign in, enable the existing consented activity bridge on that computer, then choose **Use my published agents** from the companion. This opens only your authorized published status metadata and keeps the underlying office available. It does not expose your local T3 endpoint or task transcripts, and the home computer/bridge must remain online. Friends' published offices use the same minimal sharing contract; presence access never reveals agent activity.
+
+## Install and alerts
+
+The optional **App & alerts** controls let you install T3 Office or enable notifications. On iPhone/iPad, add the HTTPS site to your Home Screen and open it there before enabling alerts. Notifications are off by default; only the explicit enable button asks for permission. Turn them off from the same controls. Permission remains subject to your browser and operating-system settings.
+
+Background notifications cover your own office when it receives an already-authorized activity publication. Keep the home computer and its opt-in bridge running to receive current agent status while away; installing the app does not start or control agents. Shared-office alerts require current activity access and an open page. Notices contain only generic attention/completion text. Completion notices require a separate opt-in. Initial snapshots, reconnects and new agents establish a baseline; repeated alerts are limited, and attention takes priority over a completion cooldown. Signing out ends the session that enabled background alerts.
+
+The service worker caches public app assets only. Activity, account/authentication responses and office snapshots are never cached for offline use. Without a connection the app shows a static notice. App updates wait for **Reload to update**; they do not replace a live session automatically.
+
+Background push needs the existing deployment to have `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` and `VAPID_SUBJECT` (a valid operator `mailto:` or HTTPS URL). Generate a pair with `node scripts/vapid-keys.mjs .local/vapid.json` in an ignored owner-only directory; put the private key in your server's supported secret store. Never commit key files or paste private keys into source/configuration. Apply migration `0008_push.sql` before deploying the Worker. Without configuration, opted-in alerts remain foreground-only. Browser push endpoints are validated, requests are encrypted, and delivery rechecks session/credential and pause state, including retries.
+
+Browser installation, permission and actual device delivery still need a real-device check; the automated tests use synthetic accounts and a fake push service. See [Apple's Web Push guide](https://developer.apple.com/documentation/usernotifications/sending-web-push-notifications-in-web-apps-and-browsers) for platform installation and gesture requirements.
+
 ## Separate shared service and CLI bridge
 
 For a building service that does not read any private local data, use `npm run dev`, or `npm run build` followed by `npm run serve`. Both start on loopback and disable private `/api/t3/*` and `/api/board` routes. The home screen remains an office; no data means the original demo. Public deployment still needs reviewed TLS/proxy, identity/abuse/recovery and backup configuration; this release is verified locally, not publicly hosted.

@@ -1,5 +1,6 @@
 import { githubLogin } from './github-login.ts';
 import type { GitHubIdentityBroker } from './github-identity.ts';
+import { pushSupport, type PushOptions } from './push.ts';
 import { humanSchema, humanRoute, revokeHumanAccess, leaveHumanRooms } from './humans.ts';
 import { isCharacterStyle, cleanCharacterStyle } from '../src/character-style.ts';
 import { DEFAULT_APPEARANCE, isAppearance, cleanAppearance } from '../src/appearance.ts';
@@ -59,7 +60,7 @@ async function body(req: IncomingMessage): Promise<Record<string, unknown>> {
   catch (e) { if (e instanceof ApiError) throw e; return fail(400, 'Invalid JSON.'); }
 }
 
-export function createBuildingHandler(options: { dbPath?: string; now?: () => number; github?: GitHubIdentityBroker } = {}) {
+export function createBuildingHandler(options: { dbPath?: string; now?: () => number; github?: GitHubIdentityBroker; push?: PushOptions } = {}) {
   const now = options.now ?? Date.now;
   const path = options.dbPath ?? resolve('.local/building.sqlite');
   if (path !== ':memory:') mkdirSync(dirname(path), { recursive: true, mode: 0o700 });
@@ -190,6 +191,7 @@ export function createBuildingHandler(options: { dbPath?: string; now?: () => nu
     rates.set(key, current);
     if (current.count > 20) fail(429, 'Too many sign-in attempts. Try again in 15 minutes.');
   };
+  const push = pushSupport(db, now, options.push);
   const identityRoutes=githubLogin(db,options.github,now);
   const handle = (req: IncomingMessage, res: ServerResponse, next: Next = () => { res.statusCode = 404; res.end(); }) => {
     const pathname = (req.url ?? '').split('?')[0];
@@ -269,6 +271,12 @@ export function createBuildingHandler(options: { dbPath?: string; now?: () => nu
       };
       const office = ownOffice(user);
       if(route==='/human'||route==='/rooms'||route.startsWith('/rooms/')){await humanRoute({db,now,user:()=>user,route,method,body:authorizedBody,reply,fail});return;}
+      if (route === '/push/config' || route === '/push/subscriptions') {
+        const sessionHash = hash(req.headers.cookie?.split(';').map((p) => p.trim()).find((p) => p.startsWith('building_session='))?.slice('building_session='.length) ?? '');
+        const alive = () => { try { return authenticate(req).id === user.id; } catch { return false; } };
+        await push.route({ route, method, user, session: sessionHash, body: authorizedBody, live: alive, reply, fail });
+        return;
+      }
       if (match('/session', ['GET'])) return reply(200, session(user));
       if (route.startsWith('/doorbell')) pruneSocial();
       if (route === '/social' || route === '/focus' || route.startsWith('/focus/') || route === '/moments' || route.startsWith('/moments/')) pruneSocial();
@@ -417,8 +425,12 @@ export function createBuildingHandler(options: { dbPath?: string; now?: () => nu
           return { id, name: `Agent ${i + 1}`, provider: String(agent.provider), status: String(agent.status) };
         });
         // Re-read after consuming the request so a concurrent pause is respected.
-        if (ownOffice(user).paused) fail(409, 'Sharing is paused. Resume before publishing.');
+        const before = ownOffice(user);
+        if (before.paused) fail(409, 'Sharing is paused. Resume before publishing.');
         run('UPDATE offices SET agents=?,updated=? WHERE owner=?', JSON.stringify(agents), now(), user.id);
+        // Only a fresh previous snapshot is a trustworthy baseline: first publish, reconnect or an offline gap never alerts.
+        const fresh = before.updated !== null && now() - Number(before.updated) < STALE;
+        void push.notify(user, fresh ? JSON.parse(String(before.agents)) : null, agents.map((a) => ({ id: a.id, status: a.status })), () => { try { return (req.headers.authorization ? authenticatePublisher(req) : authenticate(req)).id === user.id; } catch { return false; } });
         return reply(200, { ok: true, agentCount: agents.length });
       }
       if (match('/characters', ['GET'])) return reply(200, { characters: characters(office) });

@@ -39,7 +39,8 @@
         "APP_ORIGIN": "https://t3-office-trial.REPLACE-WITH-ACCOUNT-SUBDOMAIN.workers.dev",
         "ALLOW_PASSWORD_SIGNUP": "0",
         "API_OPEN": "1",
-        "GITHUB_ALLOWED_LOGINS": "REPLACE-WITH-GITHUB-LOGINS"
+        "GITHUB_ALLOWED_LOGINS": "REPLACE-WITH-GITHUB-LOGINS",
+        "VAPID_SUBJECT": "https://github.com/Fernise/t3-office"
       },
       "d1_databases": [
         {

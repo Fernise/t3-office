@@ -1,0 +1,15 @@
+.app-tools { margin:auto;box-sizing:border-box;width:min(560px,calc(100vw - 28px));max-height:calc(100dvh - 30px);overflow:auto;padding:22px;border:3px solid var(--edge,#263d37);background:var(--paper,#f2eedc);color:var(--ink,#263d37);box-shadow:5px 5px 0 var(--shadow,#1118);font:16px/1.5 'Pixelify Sans',monospace; }
+.app-tools::backdrop { background:#10201ac0; }
+.app-tools * { box-sizing:border-box; }
+.app-tools header { display:flex;gap:16px;justify-content:space-between;align-items:start; }
+.app-tools h1 { font-size:26px;line-height:1.1;margin:0; }
+.app-tools h2 { font-size:20px;margin:0 0 6px; }
+.app-tools section { margin-top:20px; }
+.app-tools p { margin:8px 0; }
+.app-tools label { display:flex;align-items:center;gap:10px;margin:10px 0; }
+.app-tools input { width:20px;height:20px;flex:none;accent-color:var(--ink,#263d37); }
+.app-tools button, .app-update button { font:inherit;cursor:pointer;padding:8px 12px;min-height:44px;border:2px solid var(--edge,#263d37);background:var(--paper,#f2eedc);color:inherit; }
+.app-tools button:disabled { opacity:.5;cursor:default; }
+.app-tools button:focus-visible, .app-update button:focus-visible, .app-tools input:focus-visible { outline:3px solid var(--ink,#263d37);outline-offset:2px; }
+.app-update { position:fixed;left:16px;bottom:16px;z-index:9700;display:flex;flex-wrap:wrap;gap:8px;align-items:center;max-width:calc(100vw - 32px);padding:10px 12px;border:3px solid var(--edge,#263d37);background:var(--paper,#f2eedc);color:var(--ink,#263d37);font:15px 'Pixelify Sans',monospace; }
+@media (max-width:600px){ .app-tools{padding:16px;} }

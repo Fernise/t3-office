@@ -11,7 +11,7 @@ export type IdentityEnv={GITHUB_CLIENT_ID?:string;GITHUB_CLIENT_SECRET?:string;G
 export interface Context {req:Request;path:string;method:string;origin:string;client:string;db:D1DatabaseSession;sql:Sql;headers:Headers;body:()=>Promise<Record<string,unknown>>;current:()=>Promise<User|null>;reply:(status:number,data:unknown)=>Response;}
 export const quote=(value:string)=>"'"+value.replace(/'/g,"''")+"'";
 export const sessionGuard=(token:string,user:string)=>`EXISTS(SELECT 1 FROM sessions WHERE token=${quote(token)} AND user=${quote(user)} AND expires>${Date.now()})`;
-export interface AuthContext extends Context{user:User;token:string;publisher:boolean;live:()=>string;}
+export interface AuthContext extends Context{user:User;token:string;publisher:boolean;live:()=>string;notify?:(user:User,previous:{id:string;status:string}[]|null,next:{id:string;status:string}[],epoch:number,live:()=>string)=>void;}
 export function visibleText(value:unknown,max:number):string{if(typeof value!=='string'||!value.trim()||value.length>max||/[\u0000-\u001f\u007f]/.test(value))fail(400,'Use short visible text.');return value.trim();}
 export async function authorizedInput(ctx:AuthContext){const input=await ctx.body();const user=await ctx.current();if(!user||user.id!==ctx.user.id)fail(401,'Session expired.');if(input.actorId!==undefined&&input.actorId!==user.id)fail(409,'Account changed.');return input;}
 /** Cookie attributes for this deployment: Secure whenever the configured origin is HTTPS. */

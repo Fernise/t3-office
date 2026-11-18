@@ -18,6 +18,14 @@ if(command==='preflight'){
  check(v.API_OPEN!=='0','API_OPEN is "0": the deployed API would be closed');
  check(trial.observability?.logs?.invocation_logs===false,'Keep invocation_logs off so request URLs (OAuth callback codes) are not stored');
  for(const s of['GITHUB_CLIENT_ID','GITHUB_CLIENT_SECRET'])check(!(s in v),`${s} must be a secret (wrangler secret put), never a var`);
+ check(!('VAPID_PRIVATE_KEY' in v)&&!('VAPID_PRIVATE_KEY' in (config.vars??{})),'VAPID_PRIVATE_KEY must be a secret, never a var');
+ if(v.VAPID_SUBJECT!==undefined){
+  const subject=v.VAPID_SUBJECT;let valid=typeof subject==='string'&&/^mailto:[^\s@]+@[^\s@]+$/.test(subject);
+  try{const contact=new URL(subject);valid ||= contact.protocol==='https:'&&!contact.username&&!contact.password&&!contact.hash&&!/\s/.test(subject);}catch{}
+  check(valid,'VAPID_SUBJECT must be a valid mailto or HTTPS operator contact');
+ }
+ const root={...config};delete root.env;
+ check(![root,trial].some(c=>JSON.stringify(c).includes('"PUSH_TRANSPORT"')),'PUSH_TRANSPORT is test-only and must not be bound in production');
  try{const built=await stat('dist/index.html');check(Date.now()-built.mtimeMs<3600000,'dist/ is older than an hour; run npm run build');}catch{problems.push('dist/ is missing; run npm run build');}
  if(problems.length){console.error('Trial preflight failed:\n - '+problems.join('\n - '));process.exit(1);}
  console.log(`PASS: trial preflight for ${origin.origin}: HTTPS origin, D1 id, ${logins.length} GitHub guest(s), password sign-up closed, invocation logs off, fresh build.`);

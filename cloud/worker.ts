@@ -7,9 +7,10 @@ import {cloudIdentity} from './identity';
 import {Failure,fail,sessionGuard,quote,cookieAttributes,clientKey,limit} from './context';
 import {cloudHumans} from './humans';
 import {cloudSocial,momentOf,momentProjection,type WithMoment} from './social';
+import {cloudPush,pushNotifier,type PushEnv} from './push';
 import {cloudActivity,activitySnapshot,profileProjection,type Office} from './activity';
 /** ALLOW_PASSWORD_SIGNUP='0' closes handle/password registration; GITHUB_ALLOWED_LOGINS is an optional comma list; API_OPEN='0' is the trial off-switch. */
-interface Env{DB:D1Database;APP_ORIGIN:string;ASSETS?:Fetcher;GITHUB_CLIENT_ID?:string;GITHUB_CLIENT_SECRET?:string;GITHUB_TRANSPORT?:Fetcher;GITHUB_ALLOWED_LOGINS?:string;ALLOW_PASSWORD_SIGNUP?:string;API_OPEN?:string}
+type Env={DB:D1Database;APP_ORIGIN:string;ASSETS?:Fetcher;GITHUB_CLIENT_ID?:string;GITHUB_CLIENT_SECRET?:string;GITHUB_TRANSPORT?:Fetcher;GITHUB_ALLOWED_LOGINS?:string;ALLOW_PASSWORD_SIGNUP?:string;API_OPEN?:string}&PushEnv
 const LOOPBACK=['localhost','127.0.0.1','[::1]'];
 /** Page/asset headers. The app embeds itself (friends drawer) and YouTube (DJ deck), so framing is same-origin only rather than denied. */
 function pageHeaders(res:Response,https:boolean):Response{
@@ -29,7 +30,7 @@ async function body(req:Request):Promise<Record<string,unknown>>{
  const bytes=new Uint8Array(size);let i=0;for(const chunk of chunks){bytes.set(chunk,i);i+=chunk.byteLength;}
  try{const value=JSON.parse(new TextDecoder().decode(bytes));if(!value||typeof value!=='object'||Array.isArray(value))fail(400,'Expected JSON object.');return value;}catch{fail(400,'Invalid JSON object.');}
 }
-export default {async fetch(req:Request,env:Env):Promise<Response>{
+export default {async fetch(req:Request,env:Env,exec?:{waitUntil(p:Promise<unknown>):void}):Promise<Response>{
  const headers=new Headers({'Content-Type':'application/json','Cache-Control':'no-store','X-Content-Type-Options':'nosniff','Referrer-Policy':'no-referrer'});
  const reply=(status:number,data:unknown)=>new Response(JSON.stringify(data),{status,headers});
  try{
@@ -73,9 +74,11 @@ export default {async fetch(req:Request,env:Env):Promise<Response>{
   }
   const u=await auth();
   const live=()=>publisher?`EXISTS(SELECT 1 FROM publisher_tokens WHERE token=${quote(publisherToken)} AND user=${quote(u.id)} AND expires>${Date.now()})`:sessionGuard(token,u.id);
-  const activityResponse=await cloudActivity({req,path,method,origin:origin.origin,client,db,sql,headers,body:()=>body(req),current,reply,user:u,token,publisher,live});if(activityResponse)return activityResponse;
+  const notify=pushNotifier({sql,env,defer:p=>exec?exec.waitUntil(p):void p.catch(()=>{})});
+  const activityResponse=await cloudActivity({req,path,method,origin:origin.origin,client,db,sql,headers,body:()=>body(req),current,reply,user:u,token,publisher,live,notify});if(activityResponse)return activityResponse;
   const humanResponse=await cloudHumans({req,path,method,origin:origin.origin,client,db,sql,headers,body:()=>body(req),current,reply,user:u,token,publisher,live});if(humanResponse)return humanResponse;
   const socialResponse=await cloudSocial({req,path,method,origin:origin.origin,client,db,sql,headers,body:()=>body(req),current,reply,user:u,token,publisher,live});if(socialResponse)return socialResponse;
+  const pushResponse=await cloudPush({req,path,method,origin:origin.origin,client,db,sql,headers,body:()=>body(req),current,reply,user:u,token,publisher,live},env);if(pushResponse)return pushResponse;
   if(path==='/session'){if(method!=='GET')fail(405,'Method not allowed.');return reply(200,await session(u));}
   if(method==='POST'||method==='DELETE'){const input=await body(req);const again=await auth();if(again.id!==u.id||(input.actorId!==undefined&&input.actorId!==u.id))fail(409,'Account changed.');
    if(path==='/logout'&&method==='POST'){await identity.check(authIntent);const statements=[sql(`DELETE FROM human_presence WHERE user=? AND ${sessionGuard(token,u.id)} AND ${authGuard}`,u.id),sql(`DELETE FROM sessions WHERE token=? AND ${authGuard}`,token)];if(authIntent)statements.push(sql('UPDATE auth_contexts SET version=version+1 WHERE id=? AND version=?',authIntent.id,authIntent.version));await db.batch(statements);cookie('',0);return reply(200,{ok:true});}

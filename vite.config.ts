@@ -161,6 +161,16 @@ function privateDataBoundary(): Plugin {
   const mount = (server: ViteDevServer | PreviewServer) => {
     server.middlewares.use((req, res, next) => {
       const path = (req.url ?? '').split('?')[0];
+      // Deny hidden files even when they do not exist: Vite's SPA fallback must not
+      // turn a forbidden URL into a successful HTML response in a fresh worktree.
+      let decoded: string;
+      try { decoded = decodeURIComponent(path); } catch { res.statusCode = 400; res.end(); return; }
+      const publicOptimizedModule = /^\/node_modules\/\.vite\/deps\/[\w.-]+\.(?:js|js\.map)$/.test(decoded);
+      if (/(^|\/)\./.test(decoded) && !publicOptimizedModule) {
+        res.statusCode = 403;
+        res.setHeader('Content-Type', 'application/json'); res.setHeader('Cache-Control', 'no-store');
+        res.end(JSON.stringify({ error: 'Private files are not available.' })); return;
+      }
       if (!/^\/api\/(t3(?:\/|$)|board(?:\/|$))/.test(path)) return next();
       const local = ['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(req.socket.remoteAddress ?? '');
       if (process.env.T3_LOCAL_DATA === '1' && local) return next();
