@@ -21,7 +21,9 @@ export function cloudIdentity(ctx:Context,env:IdentityEnv){
    if(ctx.method!=='GET')fail(405,'Method not allowed.');if(enabled){const id=hash(readCookie(req,DEVICE));if(!await sql('SELECT id FROM auth_contexts WHERE id=? AND expires>?',id,Date.now()).first()){
     await sql('DELETE FROM github_flows WHERE expires<=?',Date.now()).run();await sql('DELETE FROM auth_contexts WHERE expires<=? AND NOT EXISTS(SELECT 1 FROM github_flows WHERE context=auth_contexts.id)',Date.now()).run();
     await limit(sql,'contexts:'+ctx.client,20,900000,'Too many new sign-in contexts.');const value=nonce();if(!(await sql('INSERT INTO auth_contexts SELECT ?,0,? WHERE (SELECT COUNT(*) FROM auth_contexts)<1000',hash(value),Date.now()+1800000).run()).meta.changes)fail(429,'Too many sign-in contexts.');cookie(DEVICE,value,604800);
-   }}return ctx.reply(200,{github:enabled});
+   }}
+   // passwordSignup:false tells the sign-in screens to offer GitHub only (and say how to get back in); absent = open.
+   return ctx.reply(200,{github:enabled,...(env.ALLOW_PASSWORD_SIGNUP==='0'?{passwordSignup:false}:{})});
   }
   if(!ctx.path.startsWith('/auth/github/'))return null;await sql('DELETE FROM github_flows WHERE expires<=?',Date.now()).run();if(!broker)fail(503,'GitHub sign-in is not configured.');
   const action=ctx.path.slice('/auth/github/'.length);if(!['start','callback','pending','confirm','cancel'].includes(action))fail(404,'Unknown sign-in endpoint.');if(ctx.method!==(['callback','pending'].includes(action)?'GET':'POST'))fail(405,'Method not allowed.');

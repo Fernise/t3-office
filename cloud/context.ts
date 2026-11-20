@@ -6,7 +6,7 @@ export class Failure extends Error {constructor(readonly status:number,message:s
 export function fail(status:number,message:string):never{throw new Failure(status,message);}
 export function readCookie(req:Request,key:string){return req.headers.get('Cookie')?.split(';').map(v=>v.trim()).find(v=>v.startsWith(key+'='))?.slice(key.length+1)??'';}
 export type Sql=(query:string,...values:(string|number)[])=>D1PreparedStatement;
-export type IdentityEnv={GITHUB_CLIENT_ID?:string;GITHUB_CLIENT_SECRET?:string;GITHUB_TRANSPORT?:Fetcher;GITHUB_ALLOWED_LOGINS?:string};
+export type IdentityEnv={GITHUB_CLIENT_ID?:string;GITHUB_CLIENT_SECRET?:string;GITHUB_TRANSPORT?:Fetcher;GITHUB_ALLOWED_LOGINS?:string;ALLOW_PASSWORD_SIGNUP?:string};
 /** client is a short hash of the connecting address (Cloudflare sets CF-Connecting-IP); it only keys short-lived rate limits. */
 export interface Context {req:Request;path:string;method:string;origin:string;client:string;db:D1DatabaseSession;sql:Sql;headers:Headers;body:()=>Promise<Record<string,unknown>>;current:()=>Promise<User|null>;reply:(status:number,data:unknown)=>Response;}
 export const quote=(value:string)=>"'"+value.replace(/'/g,"''")+"'";

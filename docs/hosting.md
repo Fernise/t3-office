@@ -77,7 +77,8 @@ Agent activity on the hosted building comes only from explicit browser sharing o
 
 ## Known trial limitations
 
-- No account recovery and no email. Recovery is through GitHub, since the same GitHub account signs back into the same office.
+- Account recovery is GitHub sign-in only (decided 2026-11-20): the same GitHub account always signs back into the same office. There is no email and no password reset. With `ALLOW_PASSWORD_SIGNUP=0`, `/auth/providers` answers `passwordSignup:false` and both sign-in screens (Friends & characters, People & chat) show only **Continue with GitHub** with a short "Lost access?" explanation. Losing the GitHub account itself means losing access; the operator can still restore from backups.
+- The trial keeps the free `workers.dev` address (decided 2026-11-20); a custom domain needs the GitHub OAuth app, `APP_ORIGIN` and the health-check secret updated together.
 - Worker accounts are separate from the Node service's `.local/building.sqlite`. Nothing is migrated.
 - Rate-limit counters live in D1 (fixed 15-minute or daily windows). They are suitable for a small trial, not for a public launch.
 - A public launch needs its own review: custom domain, open sign-up policy, recovery, moderation and paid-plan limits.

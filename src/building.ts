@@ -23,6 +23,13 @@ let sharing = false;
 let pendingShare = false;
 let localCharacters: SharedAgent[] = [];
 let authMode: 'register' | 'login' = 'register';
+/** Sign-in options of this building (loaded once while signed out): GitHub, and whether password sign-up is open. */
+let providers: { github: boolean; passwordSignup: boolean } | null = null;
+async function loadProviders() {
+  try { const p = await api<{ github: boolean; passwordSignup?: boolean }>('/auth/providers'); providers = { github: p.github, passwordSignup: p.passwordSignup !== false }; }
+  catch { providers = { github: false, passwordSignup: true }; }
+  if (!session) render();
+}
 let appearance: Appearance = { ...DEFAULT_APPEARANCE };
 let currentFloor: string | null = null;
 let appearanceReady = false;
@@ -63,7 +70,10 @@ function render() {
     return;
   }
   if (!session) {
-    panel.innerHTML = `<h2>${B.yourOfficeFirst}</h2><p class="hint">${B.optionalAccount}</p>${invitation ? `<p>${B.acceptPending}</p>` : ''}<form id="auth-form">${authMode === 'register' ? `<label>${B.name}<input name="name" required maxlength="60" autocomplete="name"></label>` : ''}<label>${B.handle}<input name="handle" required minlength="3" maxlength="32" pattern="[a-zA-Z0-9_-]+" autocomplete="username" autocapitalize="none"></label><label>${B.password}<input name="password" type="password" required minlength="12" maxlength="256" autocomplete="${authMode === 'register' ? 'new-password' : 'current-password'}"></label><small>${B.passwordHint}</small><button type="submit">${authMode === 'register' ? B.register : B.login}</button></form><button data-action="auth-mode">${authMode === 'register' ? B.loginInstead : B.registerInstead}</button>`;
+    if (!providers) void loadProviders();
+    const githubOnly = !!providers?.github && !providers.passwordSignup;
+    const github = providers?.github ? `<button data-action="github-start" class="github-start">${B.githubStart}</button>${githubOnly ? `<p class="hint">${B.githubRecover}</p>` : ''}` : '';
+    panel.innerHTML = `<h2>${B.yourOfficeFirst}</h2><p class="hint">${githubOnly ? B.githubOnly : B.optionalAccount}</p>${invitation ? `<p>${B.acceptPending}</p>` : ''}${github}${githubOnly ? '' : `<form id="auth-form">${authMode === 'register' ? `<label>${B.name}<input name="name" required maxlength="60" autocomplete="name"></label>` : ''}<label>${B.handle}<input name="handle" required minlength="3" maxlength="32" pattern="[a-zA-Z0-9_-]+" autocomplete="username" autocapitalize="none"></label><label>${B.password}<input name="password" type="password" required minlength="12" maxlength="256" autocomplete="${authMode === 'register' ? 'new-password' : 'current-password'}"></label><small>${B.passwordHint}</small><button type="submit">${authMode === 'register' ? B.register : B.login}</button></form><button data-action="auth-mode">${authMode === 'register' ? B.loginInstead : B.registerInstead}</button>`}`;
     return;
   }
   const account = `<p class="account">${esc(session.user.name)} · @${esc(session.user.handle)} <button data-action="logout">${B.signOut}</button></p>`;
@@ -194,6 +204,17 @@ root.addEventListener('click', (event) => {
       case 'close': if (embedded) send({ type: 'office-menu-close' }); else location.assign('/'); break;
       case 'own': if (embedded) send({ type: 'office-own-floor' }); else void travelToFloor(null); break;
       case 'auth-mode': authMode = authMode === 'register' ? 'login' : 'register'; render(); break;
+      case 'github-start': {
+        // Same flow as People & chat; the callback returns to the office, which shows the confirmation step.
+        button.disabled = true;
+        try {
+          const result = await api<{ authorizationUrl: string }>('/auth/github/start', 'POST', {});
+          const url = new URL(result.authorizationUrl);
+          if (url.origin !== 'https://github.com' || url.pathname !== '/login/oauth/authorize') throw new Error(B.githubFailed);
+          (window.top ?? window).location.assign(url.href);
+        } catch { button.disabled = false; notice(B.githubFailed, true); }
+        break;
+      }
       case 'logout': if (sharing || pendingShare) { logoutPending = true; send({ type: 'office-share-stop' }); } else await logout(); break;
       case 'share': pendingShare = true; renderSharingState(); send({ type: sharing ? 'office-share-stop' : 'office-share-start' }); break;
       case 'create-key': {
