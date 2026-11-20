@@ -2,13 +2,13 @@
  * - caches ONLY explicitly public static files (hashed build assets, icons, manifest, offline page);
  * - never touches /api/*, OAuth/auth callbacks, dot paths, Vite internals or any URL with credential-like query parameters (the browser handles those, network only);
  * - navigations are network-only; a static offline page is shown only if the network fails. No snapshot, user or office data is ever stored;
- * - shows generic push notifications; the payload only selects one of two fixed texts. */
+ * - shows generic push notifications; the payload only selects one of three fixed texts. */
 const CACHE_PREFIX = 't3-office-static-';
 const CACHE = CACHE_PREFIX + 'v1';
 const PRECACHE = ['/offline.html', '/manifest.webmanifest', '/icons/icon-192.png', '/icons/icon-512.png'];
 const TEXT = {
-  en: { attention: 'An agent needs attention', finished: 'An agent finished' },
-  de: { attention: 'Ein Agent braucht Aufmerksamkeit', finished: 'Ein Agent ist fertig' },
+  en: { attention: 'An agent needs attention', finished: 'An agent finished', test: 'Test alert: notifications work on this device.' },
+  de: { attention: 'Ein Agent braucht Aufmerksamkeit', finished: 'Ein Agent ist fertig', test: 'Test-Hinweis: Benachrichtigungen funktionieren auf diesem Gerät.' },
 };
 const PRIVATE_QUERY = /^(code|state|error|error_description|token|access_token|id_token|session|sid|key|auth|invite|invitation|publisher_key|password)$/i;
 
@@ -59,7 +59,7 @@ self.addEventListener('fetch', (event) => {
 
 self.addEventListener('push', (event) => {
   let kind = 'attention';
-  try { const d = event.data && event.data.json(); if (d && d.v === 1 && d.kind === 'finished') kind = 'finished'; } catch (e) { /* generic text only */ }
+  try { const d = event.data && event.data.json(); if (d && d.v === 1 && (d.kind === 'finished' || d.kind === 'test')) kind = d.kind; } catch (e) { /* generic text only */ }
   const lang = String(self.navigator.language || 'en').toLowerCase().startsWith('de') ? 'de' : 'en';
   event.waitUntil(self.registration.showNotification('T3 Office', { body: TEXT[lang][kind], tag: 'office-attention', icon: '/icons/icon-192.png', data: { office: true } }));
 });

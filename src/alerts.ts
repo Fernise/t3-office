@@ -1,7 +1,10 @@
 /** Opt-in alert controller. Nothing here runs a permission prompt or subscription unless enable() is called from an explicit click. Logic is DOM-free so tests can drive it with a fake environment. */
 import { unb64u } from './webpush';
+import type { QuietHours } from './alert-rules';
 export interface PushSub { endpoint: string; keys: { p256dh: string; auth: string }; unsubscribe(): Promise<boolean> }
-export interface Pref { actor: string; push: boolean; finished: boolean }
+/** own: your office alerts this device; quiet: per-device quiet hours; muted: shared offices that never alert here (foreground only). */
+export interface Pref { actor: string; push: boolean; finished: boolean; own?: boolean; quiet?: QuietHours | null; muted?: string[] }
+export interface AlertRecord { at: number; kind: string; sent: number; held: number }
 export type AlertState = 'insecure' | 'unsupported' | 'needs-install' | 'denied' | 'signed-out' | 'off' | 'on-push' | 'on-foreground';
 export type Notice = 'dismissed' | 'denied' | 'signedOut' | 'accountChanged' | 'failed' | null;
 export interface AlertEnv {
@@ -12,7 +15,12 @@ export interface AlertEnv {
   pref: { get(): Pref | null; set(p: Pref | null): void };
   session(): Promise<{ id: string } | null>; // null = definitely signed out (401); throws on network trouble
   config(): Promise<{ enabled: boolean; publicKey: string | null; subscriptions: number }>;
-  register(body: { actorId: string; endpoint: string; keys: { p256dh: string; auth: string }; finished: boolean }): Promise<void>;
+  register(body: { actorId: string; endpoint: string; keys: { p256dh: string; auth: string }; finished: boolean; own?: boolean; quiet?: QuietHours | null }): Promise<void>;
+  /** Optional per-device controls (absent on older servers/tests). */
+  settings?(body: { endpoint: string; finished?: boolean; own?: boolean; quiet?: QuietHours | null }): Promise<void>;
+  test?(endpoint: string): Promise<{ delivered: boolean }>;
+  history?(): Promise<AlertRecord[]>;
+  showLocal?(kind: 'test'): Promise<boolean>;
   unregister(endpoint: string): Promise<void>;
   startWatcher(): void; stopWatcher(): void;
 }
@@ -44,7 +52,7 @@ export function createAlerts(env: AlertEnv) {
         if (!cfg.enabled || !channel) { env.pref.set({ ...pref, push: false }); } else {
           let sub = await channel.get();
           if (!sub) sub = await channel.subscribe(unb64u(cfg.publicKey!)); // permission already granted by the person; no prompt
-          await env.register({ actorId: me.id, endpoint: sub.endpoint, keys: sub.keys, finished: pref.finished });
+          await env.register({ actorId: me.id, endpoint: sub.endpoint, keys: sub.keys, finished: pref.finished, own: pref.own !== false, quiet: pref.quiet ?? null });
         }
       } catch { /* leave as is; the dialog offers turning it off and on */ }
     }
@@ -90,10 +98,29 @@ export function createAlerts(env: AlertEnv) {
       const current = await env.session();
       if (!current || current.id !== me.id) { await cleanup(); return result(current ? 'off' : 'signed-out', current ? 'accountChanged' : 'signedOut'); }
     } catch { await cleanup(); return result('off', 'failed'); }
-    env.pref.set({ actor: me.id, push, finished });
+    env.pref.set({ actor: me.id, push, finished, own: true, quiet: null, muted: [] });
     env.startWatcher();
     return result(push ? 'on-push' : 'on-foreground');
   }
   async function disable(): Promise<Result> { await cleanup(); return result(base() ?? 'off'); }
-  return { reconcile, enable, disable, status: (): Result => result(base() ?? (env.pref.get() ? stateFromPref() : env.permission() === 'denied' ? 'denied' : 'off')) };
+  /** Change per-device choices while alerts are on. The local choice applies at once; the server copy is best effort and re-sent on the next reconcile. */
+  async function update(change: Partial<Pick<Pref, 'finished' | 'own' | 'quiet' | 'muted'>>): Promise<boolean> {
+    const pref = env.pref.get(); if (!pref) return false;
+    env.pref.set({ ...pref, ...change });
+    if (!pref.push || !env.settings) return true;
+    const sub = await env.push()?.get().catch(() => null); if (!sub) return true;
+    const body: { endpoint: string; finished?: boolean; own?: boolean; quiet?: QuietHours | null } = { endpoint: sub.endpoint };
+    if (change.finished !== undefined) body.finished = change.finished;
+    if (change.own !== undefined) body.own = change.own;
+    if (change.quiet !== undefined) body.quiet = change.quiet;
+    if (Object.keys(body).length === 1) return true;
+    try { await env.settings(body); return true; } catch { return false; }
+  }
+  /** One test notice on this device: a real push when background alerts are on, otherwise a local notification. */
+  async function test(): Promise<'sent' | 'shown' | 'failed'> {
+    const pref = env.pref.get(); if (!pref) return 'failed';
+    if (pref.push && env.test) { const sub = await env.push()?.get().catch(() => null); if (sub) { try { return (await env.test(sub.endpoint)).delivered ? 'sent' : 'failed'; } catch { return 'failed'; } } }
+    return (await env.showLocal?.('test').catch(() => false)) ? 'shown' : 'failed';
+  }
+  return { reconcile, enable, disable, update, test, status: (): Result => result(base() ?? (env.pref.get() ? stateFromPref() : env.permission() === 'denied' ? 'denied' : 'off')) };
 }

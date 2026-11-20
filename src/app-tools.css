@@ -13,3 +13,12 @@
 .app-tools button:focus-visible, .app-update button:focus-visible, .app-tools input:focus-visible { outline:3px solid var(--ink,#263d37);outline-offset:2px; }
 .app-update { position:fixed;left:16px;bottom:16px;z-index:9700;display:flex;flex-wrap:wrap;gap:8px;align-items:center;max-width:calc(100vw - 32px);padding:10px 12px;border:3px solid var(--edge,#263d37);background:var(--paper,#f2eedc);color:var(--ink,#263d37);font:15px 'Pixelify Sans',monospace; }
 @media (max-width:600px){ .app-tools{padding:16px;} }
+
+/* Alert settings, test and recent alerts */
+.app-tools .app-check { display: flex; align-items: center; gap: 10px; min-height: 44px; }
+.app-tools .app-check input { width: 22px; height: 22px; margin: 0; flex: none; }
+.app-tools .app-hint { margin: 0 0 8px 32px; font-size: 13px; opacity: .85; }
+.app-tools .app-quiet { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-left: 32px; }
+.app-tools .app-quiet input { min-height: 40px; width: auto; min-width: 7.5em; padding: 4px 8px; font: inherit; color: inherit; background: transparent; border: 2px solid currentColor; }
+.app-tools .app-history { padding-left: 18px; margin: 0; font-size: 14px; }
+.app-tools .app-history li { margin: 4px 0; }

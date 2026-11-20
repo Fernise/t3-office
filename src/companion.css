@@ -44,3 +44,17 @@ body.companion-open .shared-connection-cover { z-index: 26000; }
 
 .companion-demo { padding:12px; border:2px solid var(--edge,currentColor); }
 .companion-demo p { margin:8px 0; overflow-wrap:anywhere; }
+
+/* Optional remembered phone view */
+.companion-remember { display: flex; align-items: center; gap: 10px; min-height: 44px; margin-top: 12px; cursor: pointer; }
+.companion-remember input { width: 22px; height: 22px; margin: 0; }
+
+/* Building-wide summary */
+.companion-views { display: flex; gap: 6px; margin-bottom: 12px; }
+.companion-views button { flex: 1; min-height: 44px; }
+.companion-building-total { font-weight: 700; margin: 6px 0 10px; }
+.companion-building-list { display: grid; gap: 6px; }
+.companion-office { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 52px; text-align: left; }
+.companion-office.needs-attention { border-width: 3px; }
+.companion-office.is-offline { opacity: .7; }
+.companion-office-state { margin-left: auto; text-align: right; font-size: 14px; }

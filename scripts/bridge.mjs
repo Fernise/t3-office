@@ -45,12 +45,18 @@ export async function bridgeOnce({ server, source, token, salt, fetcher = fetch 
   return { available: true, count: agents.length };
 }
 
-async function send({ server, token, agents, fetcher = fetch }) {
+/** One publish; returns the HTTP status instead of throwing, so callers can explain refusals (401 key, 409 paused, 429 pace). */
+export async function publishAgents({ server, token, agents, fetcher = fetch }) {
   const response = await fetcher(new URL('/api/building/publish', server), {
     method: 'POST', redirect: 'error', signal: AbortSignal.timeout(10_000),
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ agents }),
   });
-  if (!response.ok) throw new Error(`Publishing refused (HTTP ${response.status}). Check pause state or revoke and replace the publisher key.`);
+  return response.status;
+}
+
+async function send({ server, token, agents, fetcher = fetch }) {
+  const status = await publishAgents({ server, token, agents, fetcher });
+  if (status < 200 || status >= 300) throw new Error(`Publishing refused (HTTP ${status}). Check pause state or revoke and replace the publisher key.`);
 }
 
 async function main(args) {

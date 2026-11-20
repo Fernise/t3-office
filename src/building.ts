@@ -1,3 +1,4 @@
+import { homeHealth } from './home-health';
 import { locale } from './i18n';
 import { travelToFloor } from './elevator';
 import { settings } from './settings';
@@ -70,7 +71,7 @@ function render() {
     panel.innerHTML = `${account}<div class="section-title"><h2>${B.building}</h2><button data-action="building">${B.buildingView}</button><button data-action="own">${B.own}</button></div><p class="hint">${B.buildingHint}</p><div class="elevator-heading"><span aria-hidden="true">↕</span><div><h2>${B.elevator}</h2><p class="hint">${B.liftHint}</p></div></div><div id="floor-list" aria-label="${B.elevator}"></div><section><h2>${B.invite}</h2><p class="hint">${B.inviteHint}</p><form id="invite-form"><label>${B.shareLevel}<select name="scope"><option value="presence">${B.presence}</option><option value="activity">${B.activity}</option></select></label><button type="submit">${B.createInvite}</button></form><div id="invite-result"></div></section><section><h2>${B.accept}</h2><form id="accept-form"><label>${B.token}<input name="token" required value="${esc(invitation)}" autocomplete="off"></label><button type="submit">${B.accept}</button></form></section><section><h2>${B.guests}</h2><div id="grant-list"></div><h2>${B.pendingInvites}</h2><div id="invite-list"></div></section>`;
     void refreshFriends();
   } else {
-    panel.innerHTML = `${account}<h2>${B.sharing} · ${esc(session.office.name)}</h2><p class="hint">${B.safe}</p><p id="sharing-state" role="status" aria-live="polite"></p>${local ? `<button data-action="share">${sharing ? B.stopSharing : B.shareOffice}</button><p class="hint">${B.shareOfficeHint}</p>` : ''}<section class="sharing-summary"><h2>${B.sharedDetails}</h2><p>${B.presenceDetails}</p><p>${B.activityDetails}</p><p class="hint">${B.privateDetails}</p><p id="snapshot-state"></p><p class="hint">${B.freshnessHint}</p><button data-action="refresh-access">${B.refreshAccess}</button><h2>${B.guests}</h2><p class="hint">${B.accessHint}</p><div id="sharing-audience"></div></section><form id="name-form"><label>${B.officeName}<input name="name" maxlength="80" required value="${esc(session.office.name)}"></label><button type="submit">${B.save}</button></form><section><h2>${B.publisher}</h2><p class="hint">${B.publisherHint}</p><button data-action="create-key">${B.createKey}</button><div id="key-result"></div><div id="key-list"></div></section>`;
+    panel.innerHTML = `${account}<h2>${B.sharing} · ${esc(session.office.name)}</h2><p class="hint">${B.safe}</p><p id="sharing-state" role="status" aria-live="polite"></p>${local ? `<button data-action="share">${sharing ? B.stopSharing : B.shareOffice}</button><p class="hint">${B.shareOfficeHint}</p>` : ''}<section class="sharing-summary"><h2>${B.sharedDetails}</h2><p>${B.presenceDetails}</p><p>${B.activityDetails}</p><p class="hint">${B.privateDetails}</p><p id="snapshot-state"></p><p class="hint">${B.freshnessHint}</p><button data-action="refresh-access">${B.refreshAccess}</button><h2>${B.guests}</h2><p class="hint">${B.accessHint}</p><div id="sharing-audience"></div></section><form id="name-form"><label>${B.officeName}<input name="name" maxlength="80" required value="${esc(session.office.name)}"></label><button type="submit">${B.save}</button></form><section class="home-setup"><h2>${B.homeTitle}</h2><p class="hint">${B.homeIntro}</p><ol class="home-steps"><li><h3>${B.homeStep1}</h3><p class="hint">${B.homeStep1Hint}</p><button data-action="create-key">${B.createKey}</button><div id="key-result"></div></li><li><h3>${B.homeStep2}</h3><p class="hint">${B.homeStep2Hint}</p><div class="home-command"><code id="home-command">${esc(homeCommand())}</code><button data-action="copy-command">${B.copyCommand}</button></div><p class="hint">${B.homeStep2After}</p></li><li><h3>${B.homeStep3}</h3><p id="home-health" class="home-health" data-state="unknown" role="status" aria-live="polite">${B.healthUnknown}</p></li></ol><details class="home-help"><summary>${B.troubleshoot}</summary><ul>${B.troubleshootItems.map((t) => `<li>${esc(t)}</li>`).join('')}</ul></details><h3>${B.keys}</h3><div id="key-list"></div></section>`;
     renderSharingState();
     void refreshFriends();
     void run(async () => renderKeys());
@@ -98,6 +99,7 @@ async function refreshFriends() {
       root.querySelector('#sharing-audience')!.innerHTML = audience;
       const own = data.floors.find((f) => f.isOwner);
       root.querySelector('#snapshot-state')!.textContent = own ? `${own.paused ? B.serverPaused : own.online ? B.online : B.offline} · ${B.lastPublished}: ${own.updatedAt ? new Date(own.updatedAt).toLocaleString() : B.neverPublished}` : B.accessUnavailable;
+      renderHomeHealth(own);
       return;
     }
     root.querySelector('#floor-list')!.innerHTML = [...data.floors].reverse().map((f, index) => `<button class="floor ${(currentFloor ? currentFloor === f.id : f.isOwner) ? 'current-floor' : ''}" aria-current="${(currentFloor ? currentFloor === f.id : f.isOwner) ? 'location' : 'false'}" data-floor="${esc(f.id)}" data-own="${f.isOwner}"><span><small class="floor-number">${f.isOwner ? B.homeFloor : `${B.floorLabel} ${data.floors.length - index}`}${(currentFloor ? currentFloor === f.id : f.isOwner) ? ` · ${B.youAreHere}` : ''}</small><b>${esc(f.name)}</b><small>${esc(f.ownerName)} · ${f.online ? B.online : B.offline}</small><small>${f.scope === 'presence' ? B.presence : f.areas.map((a) => `${B.areaLabels[a.area]} (${a.count})`).join(' · ')}</small></span><span class="floor-windows" aria-hidden="true">${Array.from({ length: 3 }, () => `<i class="${f.online ? 'lit' : ''}"></i>`).join('')}</span><span>${f.isOwner ? B.own : B.enter} ↗</span></button>`).join('');
@@ -111,10 +113,21 @@ async function refreshFriends() {
     notice(error instanceof Error ? error.message : B.genericError, true);
   } finally { refreshing = false; }
 }
+/** The exact command for this building; the server address is the page's own origin. */
+function homeCommand() { return `npm run home -- --server ${location.origin}`; }
+let keyCount: number | null = null;
+function ago(seconds: number) { return seconds < 120 ? B.secondsAgo(seconds) : seconds < 7200 ? B.minutesAgo(Math.round(seconds / 60)) : B.hoursAgo(Math.round(seconds / 3600)); }
+function renderHomeHealth(own: Floor | undefined) {
+  const line = root.querySelector<HTMLElement>('#home-health'); if (!line) return;
+  const h = homeHealth(own, keyCount, Date.now());
+  line.dataset.state = h.state;
+  line.textContent = h.state === 'connected' ? B.healthConnected(h.agents, h.ageSeconds ?? 0) : h.state === 'stale' ? B.healthStale(ago(h.ageSeconds ?? 0)) : h.state === 'paused' ? B.healthPaused : h.state === 'no-key' ? B.healthNoKey : h.state === 'waiting' ? B.healthWaiting : B.healthUnknown;
+}
 async function renderKeys() {
   const epoch = generation;
   const data = await api<{ tokens: { id: string; expiresAt: number }[] }>('/publisher-tokens');
   if (epoch !== generation || !session) return;
+  keyCount = data.tokens.length;
   const list = root.querySelector('#key-list'); if (!list) return;
   list.innerHTML = data.tokens.map((k) => `<div class="access-row"><span>${B.publisher}<small>${B.expires} ${esc(new Date(k.expiresAt).toLocaleString())}</small></span><button data-delete="publisher-tokens" data-id="${esc(k.id)}">${B.revoke}</button></div>`).join('') || `<p class="hint">${B.noKeys}</p>`;
 }
@@ -190,6 +203,10 @@ root.addEventListener('click', (event) => {
         if (epoch !== generation || !session || !button.isConnected) return;
         const result = root.querySelector('#key-result'); if (!result) return;
         result.innerHTML = `<p>${B.keyReady}</p><textarea readonly aria-label="${B.publisher}">${esc(key.token)}</textarea><button data-action="copy">${B.copyKey}</button>`; await renderKeys(); break;
+      }
+      case 'copy-command': {
+        try { await navigator.clipboard.writeText(homeCommand()); button.textContent = B.copied; } catch { const code = root.querySelector('#home-command'); if (code) getSelection()?.selectAllChildren(code); }
+        break;
       }
       case 'copy': {
         const area = button.parentElement!.querySelector('textarea')!;

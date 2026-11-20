@@ -94,7 +94,7 @@ export async function vapidAuthorization(endpoint: string, vapid: Vapid, nowMs =
 }
 
 /** Generic, privacy-preserving payloads only: a kind from a fixed list, never task text, names, paths or provider data. */
-export type PushKind = 'attention' | 'finished';
+export type PushKind = 'attention' | 'finished' | 'test';
 export const pushPayload = (kind: PushKind) => enc.encode(JSON.stringify({ v: 1, kind }));
 
 export type PushOutcome = 'sent' | 'gone' | 'rejected' | 'retry' | 'cancelled' | 'misconfigured';

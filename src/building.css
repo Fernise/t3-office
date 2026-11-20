@@ -60,3 +60,14 @@ section { margin-top: 24px; }
 .floor-identity-fields { border:2px solid var(--edge);padding:16px;display:grid;gap:14px;min-width:0; }
 
 .social-extra-tools{margin:12px 0;}.social-extra-tools>summary{cursor:pointer;padding:8px 0;color:var(--muted);}.social-extra-tools[open]>summary{color:var(--ink);}
+
+/* Sharing → Home computer: three guided steps and live connection health. */
+.home-steps { list-style: none; padding: 0; margin: 12px 0; display: grid; gap: 14px; }
+.home-steps h3 { margin: 0 0 4px; font-size: 1rem; }
+.home-command { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.home-command code { flex: 1 1 260px; padding: 10px; border: 2px solid currentColor; font: 14px/1.4 ui-monospace, Menlo, monospace; overflow-wrap: anywhere; user-select: all; }
+.home-health { padding: 10px; border: 2px dashed currentColor; margin: 0; }
+.home-health[data-state=connected] { border-style: solid; border-color: #1d743f; }
+.home-health[data-state=stale], .home-health[data-state=paused] { border-style: solid; border-color: #b8741a; }
+.home-help ul { padding-left: 18px; }
+.home-help li { margin: 6px 0; }

@@ -109,3 +109,59 @@ test('local push: attention bypasses an informational completion cooldown', asyn
   await publish('running');await publish('completed');await f.until(()=>f.calls.length===1);await publish('failed');await f.until(()=>f.calls.length===2);assert.equal(f.calls.length,2);
  }finally{await f.close();}
 });
+
+test('alert rules: quiet hours across midnight, time zones and validation', async () => {
+  const { parseQuiet, inQuietHours, localMinutes } = await import('../src/alert-rules.ts');
+  const at = (iso: string) => Date.parse(iso);
+  assert.equal(inQuietHours({ start: 22 * 60, end: 7 * 60, tz: 'UTC' }, at('2026-11-20T23:30:00Z')), true);
+  assert.equal(inQuietHours({ start: 22 * 60, end: 7 * 60, tz: 'UTC' }, at('2026-11-20T06:59:00Z')), true);
+  assert.equal(inQuietHours({ start: 22 * 60, end: 7 * 60, tz: 'UTC' }, at('2026-11-20T07:00:00Z')), false);
+  assert.equal(inQuietHours({ start: 9 * 60, end: 17 * 60, tz: 'UTC' }, at('2026-11-20T12:00:00Z')), true);
+  assert.equal(inQuietHours({ start: 600, end: 600, tz: 'UTC' }, at('2026-11-20T10:00:00Z')), false, 'equal start/end means off');
+  assert.equal(localMinutes(at('2026-11-20T12:00:00Z'), 'Europe/Vienna'), 13 * 60, 'Vienna is UTC+1 in November');
+  assert.equal(inQuietHours({ start: 13 * 60, end: 14 * 60, tz: 'Europe/Vienna' }, at('2026-11-20T12:30:00Z')), true);
+  assert.equal(parseQuiet(null), null); assert.deepEqual(parseQuiet({ start: 0, end: 1439, tz: 'UTC' }), { start: 0, end: 1439, tz: 'UTC' });
+  for (const bad of [{ start: -1, end: 5, tz: 'UTC' }, { start: 1440, end: 5, tz: 'UTC' }, { start: 1.5, end: 5, tz: 'UTC' }, { start: 1, end: 5, tz: 'Mars/Base' }, { start: 1, end: 5 }, 'x']) assert.equal(parseQuiet(bad), undefined, JSON.stringify(bad));
+});
+
+test('local push: per-device own/quiet settings, test alert and recent alerts', async () => {
+  const f = await fixture();
+  try {
+    const owner = await f.register('ctl_owner'), other = await f.register('ctl_other');
+    const key = (await f.request('/publisher-tokens', 'POST', {}, owner.client)).data.token as string;
+    const publish = (agents: [string, string][]) => f.request('/publish', 'POST', { agents: agents.map(([id, status]) => ({ id, provider: 'codex', status })) }, {}, { authorization: 'Bearer ' + key });
+    const A = ep('ctl-a');
+    assert.equal((await f.request('/push/subscriptions', 'POST', { endpoint: A, keys: await browserKeys(), quiet: { start: 0, end: 5, tz: 'Mars/Base' } }, owner.client)).status, 400, 'invalid quiet hours rejected at registration');
+    assert.equal((await f.request('/push/subscriptions', 'POST', { endpoint: A, keys: await browserKeys(), own: true, quiet: null }, owner.client)).status, 200);
+    const flip = async (from: string, to: string) => { f.advance(61_000); await publish([['a1', from]]); await publish([['a1', to]]); };
+    await publish([['a1', 'running']]); await flip('running', 'waiting'); await f.until(() => f.calls.length === 1);
+    // Own office off on this device: nothing sent, nothing logged.
+    assert.equal((await f.request('/push/settings', 'POST', { endpoint: A, own: false }, owner.client)).status, 200);
+    await flip('running', 'failed'); await f.quiet(); assert.equal(f.calls.length, 1);
+    assert.equal((await f.request('/push/settings', 'POST', { endpoint: A, own: true }, owner.client)).status, 200);
+    // Quiet hours around "now" (UTC): held, not sent, and recorded.
+    const now = new Date(Date.now() + 200_000), m = now.getUTCHours() * 60 + now.getUTCMinutes();
+    assert.equal((await f.request('/push/settings', 'POST', { endpoint: A, quiet: { start: (m + 1380) % 1440, end: (m + 180) % 1440, tz: 'UTC' } }, owner.client)).status, 200);
+    await flip('running', 'waiting'); await f.quiet(); assert.equal(f.calls.length, 1, 'quiet hours hold the push');
+    let history = (await f.request('/push/history', 'GET', undefined, owner.client)).data.alerts as { kind: string; sent: number; held: number }[];
+    assert.deepEqual(history.map((h) => [h.kind, h.sent, h.held]), [['attention', 0, 1], ['attention', 1, 0]]);
+    assert.equal((await f.request('/push/settings', 'POST', { endpoint: A, quiet: null }, owner.client)).status, 200);
+    await flip('running', 'failed'); await f.until(() => f.calls.length === 2);
+    // Settings are per device and per account; invalid input rejected.
+    assert.equal((await f.request('/push/settings', 'POST', { endpoint: A, own: false }, other.client)).status, 404);
+    assert.equal((await f.request('/push/settings', 'POST', { endpoint: A, own: 'no' }, owner.client)).status, 400);
+    assert.equal((await f.request('/push/settings', 'POST', { endpoint: A, quiet: { start: 5, end: 9999, tz: 'UTC' } }, owner.client)).status, 400);
+    assert.equal((await f.request('/push/settings', 'POST', { endpoint: A, own: false }, {})).status, 401);
+    // Test alert: one push to this device only, ignores quiet hours, logged, rate-limited, not for other accounts.
+    await f.request('/push/settings', 'POST', { endpoint: A, quiet: { start: 0, end: 1439, tz: 'UTC' } }, owner.client);
+    const t = await f.request('/push/test', 'POST', { endpoint: A }, owner.client); assert.equal(t.status, 200); assert.equal(t.data.delivered, true);
+    await f.until(() => f.calls.length === 3); assert.equal(f.calls[2].url, A); assert.ok(f.calls[2].body.length < 200);
+    assert.equal((await f.request('/push/test', 'POST', { endpoint: A }, other.client)).status, 404);
+    for (let i = 0; i < 4; i++) assert.equal((await f.request('/push/test', 'POST', { endpoint: A }, owner.client)).status, 200);
+    assert.equal((await f.request('/push/test', 'POST', { endpoint: A }, owner.client)).status, 429);
+    history = (await f.request('/push/history', 'GET', undefined, owner.client)).data.alerts;
+    assert.equal(history[0].kind, 'test'); assert.ok(history.length <= 20);
+    assert.deepEqual((await f.request('/push/history', 'GET', undefined, other.client)).data.alerts, [], 'history is per account');
+    assert.ok(!JSON.stringify(history).includes('a1'), 'history holds kinds and counts only');
+  } finally { await f.close(); }
+});

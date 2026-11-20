@@ -271,7 +271,7 @@ export function createBuildingHandler(options: { dbPath?: string; now?: () => nu
       };
       const office = ownOffice(user);
       if(route==='/human'||route==='/rooms'||route.startsWith('/rooms/')){await humanRoute({db,now,user:()=>user,route,method,body:authorizedBody,reply,fail});return;}
-      if (route === '/push/config' || route === '/push/subscriptions') {
+      if (route.startsWith('/push/')) {
         const sessionHash = hash(req.headers.cookie?.split(';').map((p) => p.trim()).find((p) => p.startsWith('building_session='))?.slice('building_session='.length) ?? '');
         const alive = () => { try { return authenticate(req).id === user.id; } catch { return false; } };
         await push.route({ route, method, user, session: sessionHash, body: authorizedBody, live: alive, reply, fail });

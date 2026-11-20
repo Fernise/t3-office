@@ -10,6 +10,8 @@ export interface WatchDeps {
   /** Binds every poll and final notice to the account that explicitly opted in. */
   authorized?: () => Promise<boolean>;
   includeOwn?: () => boolean; onSignedOut?: () => void; isSignedOutError?: (e: unknown) => boolean;
+  /** Shared offices the person chose not to be alerted about on this device. */
+  muted?: () => readonly string[];
 }
 const MAX_FLOORS = 8;
 export function createWatcher(deps: WatchDeps) {
@@ -25,7 +27,8 @@ export function createWatcher(deps: WatchDeps) {
     if (version !== generation) return;
     let floors: WatchFloor[];
     try { floors = await deps.floors(); } catch (e) { baselines.clear(); if (deps.isSignedOutError?.(e)) deps.onSignedOut?.(); return; }
-    const eligible = floors.filter((f) => f.online && ((!f.isOwner && f.scope === 'activity') || (f.isOwner && deps.includeOwn?.()))).slice(0, MAX_FLOORS);
+    const muted = new Set(deps.muted?.() ?? []);
+    const eligible = floors.filter((f) => f.online && !muted.has(f.id) && ((!f.isOwner && f.scope === 'activity') || (f.isOwner && deps.includeOwn?.()))).slice(0, MAX_FLOORS);
     for (const id of [...baselines.keys()]) if (!eligible.some((f) => f.id === id)) baselines.delete(id);
     let attention = false, finished = false;
     for (const f of eligible) {

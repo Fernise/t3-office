@@ -54,7 +54,7 @@ Before the first deploy, also run `npm run test:cloud` and `npm run test:cloud:u
 3. Try visiting, admitting, walking, chat, sharing, pause and revoke. Then close one browser, reopen it and check that reconnecting keeps the right permissions.
 4. Note anything confusing or broken in a GitHub issue or the pull request.
 
-Agent activity on the hosted building comes only from explicit browser sharing or the publisher bridge (`npm run bridge -- --server <APP_ORIGIN> …`). The private local companion is never exposed.
+Agent activity on the hosted building comes only from explicit browser sharing or a home computer: **Sharing → Home computer** shows the exact `npm run home -- --server <APP_ORIGIN>` command and live connection health (the older `npm run bridge` remains for advanced setups). The private local reader binds to `127.0.0.1` and is never exposed.
 
 ## Operations
 

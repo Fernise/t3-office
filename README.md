@@ -46,7 +46,11 @@ Accounts, grants, office character labels and snapshots persist in ignored `.loc
 
 Choose **Agents** in the original office HUD for a compact summary of running, waiting, failed, completed and idle agents. Filter by status, tap an agent for details, or choose **Show in office**. **Back to office** restores the full scene. The 3D renderer pauses while the companion covers it; music and status updates continue. Connection freshness is shown, and offline lists clear rather than pretending that old activity is current.
 
-Simulated data is explicitly labeled **Demo**. To monitor a computer while away, sign in, enable the existing consented activity bridge on that computer, then choose **Use my published agents** from the companion. This opens only your authorized published status metadata and keeps the underlying office available. It does not expose your local T3 endpoint or task transcripts, and the home computer/bridge must remain online. Friends' published offices use the same minimal sharing contract; presence access never reveals agent activity.
+Simulated data is explicitly labeled **Demo**. To monitor a computer while away, sign in, connect that computer once through **Friends & characters → Sharing → Home computer** (see below), then choose **Use my published agents** from the companion. This opens only your authorized published status metadata and keeps the underlying office available. It does not expose your local T3 endpoint or task transcripts, and the home computer/bridge must remain online. Friends' published offices use the same minimal sharing contract; presence access never reveals agent activity.
+
+**Building** (next to **This office** in the companion) lists every office you can see, offices needing attention first: failed and waiting counts, then running. It shows counts only, never agent names from other offices; presence-only floors show online/offline. Tap an office to open its agents. Your own floor uses your local agents only when this screen really shows them (never the simulated demo).
+
+When viewing a published office, **Open this view when I start the app** (off by default) reopens that office's agents with the same status filter the next time you start the app. It restores at most once per launch, so **← Your floor** still goes home; it belongs to the account that chose it and is dropped for any other account. Access is re-checked on every open.
 
 ## Install and alerts
 
@@ -58,13 +62,23 @@ The service worker caches public app assets only. Activity, account/authenticati
 
 Background push needs the existing deployment to have `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` and `VAPID_SUBJECT` (a valid operator `mailto:` or HTTPS URL). Generate a pair with `node scripts/vapid-keys.mjs .local/vapid.json` in an ignored owner-only directory; put the private key in your server's supported secret store. Never commit key files or paste private keys into source/configuration. Apply migration `0008_push.sql` before deploying the Worker. Without configuration, opted-in alerts remain foreground-only. Browser push endpoints are validated, requests are encrypted, and delivery rechecks session/credential and pause state, including retries.
 
+While alerts are on, the same dialog offers per-device settings: **My office** (your own office's alerts on this device), finished notices, **Quiet hours** with your time zone (alerts are held on the server, not sent, and shown as held), which shared offices may alert you while the app is open, **Send a test alert** (one generic push to this device; ignores quiet hours; a few per 10 minutes) and **Recent alerts** (kind, time and how many devices received or held it; never content). Apply migration `0009_alert_controls.sql` with this release.
+
 Browser installation, permission and actual device delivery still need a real-device check; the automated tests use synthetic accounts and a fake push service. See [Apple's Web Push guide](https://developer.apple.com/documentation/usernotifications/sending-web-push-notifications-in-web-apps-and-browsers) for platform installation and gesture requirements.
 
 ## Separate shared service and CLI bridge
 
 For a building service that does not read any private local data, use `npm run dev`, or `npm run build` followed by `npm run serve`. Both start on loopback and disable private `/api/t3/*` and `/api/board` routes. The home screen remains an office; no data means the original demo. Public deployment still needs reviewed TLS/proxy, identity/abuse/recovery and backup configuration; this release is verified locally, not publicly hosted.
 
-A participant can also publish using a separate loopback companion:
+**Connect your home computer (recommended):** in **Friends & characters → Sharing → Home computer**, create a key, then run the command shown there inside your T3 Office folder on the computer where T3 Code runs:
+
+```sh
+npm run home -- --server https://your-building.example
+```
+
+It asks for the key once (hidden input) and saves it to `~/.config/t3-office/publisher.key`, readable only by you. It starts a private reader bound to `127.0.0.1` (only the read-only T3 status API, nothing else), publishes anonymous IDs, provider and status every 10 seconds and explains problems in plain language: revoked/expired key (stops; run again with `--new-key`), paused sharing (keeps trying), T3 Code not running, server unreachable. `--check` runs every step once. Ctrl+C stops and clears your shared activity. The Sharing page shows the connection live: waiting, connected (agent count, last update), not connected (last update) or paused.
+
+Advanced: a participant can also publish using a separate loopback companion:
 
 1. In **Friends & characters → Sharing**, create a publisher key. Save it outside the repository in a local file with permissions `600`, such as `~/.config/t3-office/publisher.key`.
 2. Run the companion on the participant's own machine:

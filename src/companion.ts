@@ -15,6 +15,9 @@ import type { AgentSource, Thread } from './source';
 import { mountHudAction } from './hud-actions';
 import { api, ApiError } from './building-api';
 import { locale } from './i18n';
+import { loadSummary, totals, type SummaryRow } from './building-summary';
+import type { Floor, OfficeSnapshot } from './building-api';
+import { rememberView, forgetView, rememberedView, updateRememberedFilter, type ViewFilter } from './remembered-view';
 import './companion.css';
 
 export const STALE_MS = 15_000;
@@ -35,8 +38,10 @@ const T = locale({
     status: { running: 'Running', waiting: 'Waiting', failed: 'Failed', completed: 'Completed', idle: 'Idle' } as Record<Status, string>,
     live: 'Live', stale: (s: number) => `Stale · last update ${s}s ago`, offline: 'Offline · agent list cleared until the connection returns',
     updated: (s: number) => `Updated ${s}s ago`, provider: 'Provider', area: 'Area', model: 'Model', task: 'Title', last: 'Last activity', ago: (s: number) => `${s}s ago`,
-    tools_: 'Tool calls', context: 'Context used', sub: 'Sub-agent', shared: 'Published activity · status only', demo: 'Demo · simulated agents', published: 'Use my published agents', connectHint: 'To monitor your home agents, keep the consented activity bridge running on your computer.', signIn: 'Sign in through Friends & characters first, then publish activity from your home computer.', connecting: 'Opening your published office…', connectFailed: 'Could not open your published office. Check the connection and try again.',
+    tools_: 'Tool calls', context: 'Context used', sub: 'Sub-agent', shared: 'Published activity · status only', demo: 'Demo · simulated agents', published: 'Use my published agents', connectHint: 'To see your real agents here, connect your home computer once: Friends & characters → Sharing → Home computer.', signIn: 'Sign in through Friends & characters first, then publish activity from your home computer.', connecting: 'Opening your published office…', connectFailed: 'Could not open your published office. Check the connection and try again.',
     row: (n: string, p: string, s: string) => `${n}, ${p}, ${s}. Show details`,
+    views: 'View', thisOffice: 'This office', building: 'Building', buildingHint: 'Every office you can see. Offices needing attention come first.', loadingBuilding: 'Loading building…', signInBuilding: 'Sign in through Friends & characters to see your building.', buildingFailed: 'Building unavailable. Trying again shortly.', you: 'Your office', presenceOnly: 'Presence only', online: 'Online', offlineShort: 'Offline', noCounts: 'Activity not shared', noOffices: 'No offices yet. Invite a friend from Friends & characters.', openOffice: (n: string) => `${n}: show agents`, idleAll: 'All quiet',
+    remember: 'Open this view when I start the app', remembered: 'This view opens when you start the app.', rememberSignIn: 'Sign in to remember this view.', rememberFailed: 'Could not remember this view. Try again.',
   },
   de: {
     open: 'Agenten', title: 'Agenten-Begleiter', summary: 'Agenten-Übersicht', filter: 'Nach Status filtern', all: 'Alle', close: 'Zurück zum Büro', back: 'Zurück zur Liste',
@@ -44,14 +49,18 @@ const T = locale({
     status: { running: 'Läuft', waiting: 'Wartet', failed: 'Fehlgeschlagen', completed: 'Fertig', idle: 'Untätig' } as Record<Status, string>,
     live: 'Live', stale: (s: number) => `Veraltet · letzte Aktualisierung vor ${s}s`, offline: 'Offline · Liste geleert, bis die Verbindung zurück ist',
     updated: (s: number) => `Aktualisiert vor ${s}s`, provider: 'Anbieter', area: 'Bereich', model: 'Modell', task: 'Titel', last: 'Letzte Aktivität', ago: (s: number) => `vor ${s}s`,
-    tools_: 'Werkzeugaufrufe', context: 'Kontext belegt', sub: 'Unter-Agent', shared: 'Veröffentlichte Aktivität · nur Status', demo: 'Demo · simulierte Agenten', published: 'Meine veröffentlichten Agenten verwenden', connectHint: 'Zum Überwachen muss die freigegebene Aktivitätsbrücke auf deinem Computer laufen.', signIn: 'Melde dich zuerst unter Freunde & Charaktere an und veröffentliche Aktivität vom eigenen Computer.', connecting: 'Dein veröffentlichtes Büro wird geöffnet…', connectFailed: 'Dein veröffentlichtes Büro konnte nicht geöffnet werden. Prüfe die Verbindung.',
+    tools_: 'Werkzeugaufrufe', context: 'Kontext belegt', sub: 'Unter-Agent', shared: 'Veröffentlichte Aktivität · nur Status', demo: 'Demo · simulierte Agenten', published: 'Meine veröffentlichten Agenten verwenden', connectHint: 'Um deine echten Agenten hier zu sehen, verbinde einmal deinen Heimcomputer: Freunde & Charaktere → Teilen → Heimcomputer.', signIn: 'Melde dich zuerst unter Freunde & Charaktere an und veröffentliche Aktivität vom eigenen Computer.', connecting: 'Dein veröffentlichtes Büro wird geöffnet…', connectFailed: 'Dein veröffentlichtes Büro konnte nicht geöffnet werden. Prüfe die Verbindung.',
     row: (n: string, p: string, s: string) => `${n}, ${p}, ${s}. Details anzeigen`,
+    views: 'Ansicht', thisOffice: 'Dieses Büro', building: 'Gebäude', buildingHint: 'Alle Büros, die du sehen darfst. Büros, die Aufmerksamkeit brauchen, zuerst.', loadingBuilding: 'Gebäude wird geladen…', signInBuilding: 'Melde dich über Freunde & Charaktere an, um dein Gebäude zu sehen.', buildingFailed: 'Gebäude nicht verfügbar. Neuer Versuch gleich.', you: 'Dein Büro', presenceOnly: 'Nur Anwesenheit', online: 'Online', offlineShort: 'Offline', noCounts: 'Aktivität nicht geteilt', noOffices: 'Noch keine Büros. Lade jemanden über Freunde & Charaktere ein.', openOffice: (n: string) => `${n}: Agenten zeigen`, idleAll: 'Alles ruhig',
+    remember: 'Diese Ansicht beim App-Start öffnen', remembered: 'Diese Ansicht öffnet sich beim App-Start.', rememberSignIn: 'Melde dich an, um diese Ansicht zu merken.', rememberFailed: 'Ansicht konnte nicht gemerkt werden. Bitte erneut versuchen.',
   },
 });
 
 interface Options {
   shared: boolean;
   demo?: boolean;
+  /** The published office being viewed (shared mode); enables the optional remembered phone view. */
+  floorId?: string | null;
   /** existing office focus callback; the companion closes first */
   focusAgent: (id: string) => void;
   /** local sources without their own freshness contract (T3) */
@@ -70,6 +79,8 @@ export function installCompanion(source: AgentSource, opts: Options) {
 
   let panel: HTMLElement | undefined;
   let filter: CompanionFilter = 'all';
+  // A remembered view for this office brings its status filter back.
+  { const saved = opts.shared && opts.floorId ? rememberedView() : null; if (saved && saved.floor === opts.floorId) filter = saved.filter as CompanionFilter; }
   let selected: string | null = null;
   let opener: HTMLElement | null = null;
   let inerted: [HTMLElement, boolean][] = [];
@@ -129,6 +140,58 @@ export function installCompanion(source: AgentSource, opts: Options) {
     (refs!.list.querySelector<HTMLElement>(`[data-id="${CSS.escape(id ?? '')}"]`) ?? refs!.chips.querySelector<HTMLElement>('[aria-pressed=true]'))?.focus();
   };
 
+  // Building-wide summary (optional second view). Counts only; never agent names from other offices.
+  let view: 'office' | 'building' = 'office', summaryTimer: ReturnType<typeof setInterval> | undefined, summaryBusy = false;
+  let buildingEl: HTMLElement | undefined, officeEl: HTMLElement | undefined, viewBtns: HTMLButtonElement[] = [];
+  // Your own live agents only when this screen really shows them (local T3), never the simulated demo.
+  const ownFloor = () => opts.shared || opts.demo ? null : 'own';
+  const goToOffice = (row: SummaryRow) => {
+    if (row.isOwner && (!opts.shared || opts.floorId === row.id)) return setView('office');
+    if (opts.shared && opts.floorId === row.id) return setView('office');
+    const url = new URL('/', location.origin); url.searchParams.set('source', 'shared'); url.searchParams.set('floor', row.id); url.searchParams.set('companion', '1');
+    const language = new URLSearchParams(location.search).get('lang'); if (language === 'en' || language === 'de') url.searchParams.set('lang', language);
+    location.assign(url);
+  };
+  const countText = (c: Record<Status, number>) => { const parts = ORDER.filter((s) => s !== 'idle' && c[s]).map((s) => `${c[s]} ${T.status[s]}`); return parts.join(' · ') || T.idleAll; };
+  const renderSummary = (rows: SummaryRow[] | 'loading' | 'signed-out' | 'failed') => {
+    if (!buildingEl) return;
+    const list = buildingEl.querySelector<HTMLElement>('.companion-building-list')!, line = buildingEl.querySelector<HTMLElement>('.companion-building-total')!;
+    const focusId = (document.activeElement as HTMLElement | null)?.dataset?.office;
+    if (typeof rows === 'string') { line.textContent = ''; list.replaceChildren(el('p', 'companion-note', rows === 'loading' ? T.loadingBuilding : rows === 'signed-out' ? T.signInBuilding : T.buildingFailed)); return; }
+    line.textContent = rows.length ? countText(totals(rows)) : '';
+    list.replaceChildren(...(rows.length ? rows.map((r) => {
+      const dot = r.counts?.failed ? 's-failed' : r.counts?.waiting ? 's-waiting' : r.online && r.scope !== 'presence' ? 's-running' : 's-idle';
+      const b = el('button', `companion-office ${dot}${r.counts && (r.counts.failed || r.counts.waiting) ? ' needs-attention' : ''}${r.online ? '' : ' is-offline'}`); b.type = 'button'; b.dataset.office = r.id;
+      const info = el('span', 'companion-info'); info.append(el('span', 'companion-name', r.isOwner ? `${r.name} · ${T.you}` : r.name), el('small', '', r.isOwner ? '' : r.ownerName));
+      const state = r.scope === 'presence' ? `${T.presenceOnly} · ${r.online ? T.online : T.offlineShort}` : !r.online ? T.offlineShort : r.counts ? countText(r.counts) : T.noCounts;
+      b.append(el('span', 'companion-dot'), info, el('span', 'companion-office-state', state));
+      b.setAttribute('aria-label', `${T.openOffice(r.isOwner ? `${r.name} (${T.you})` : r.name)}. ${state}`);
+      b.addEventListener('click', () => goToOffice(r));
+      return b;
+    }) : [el('p', 'companion-note', T.noOffices)]));
+    if (focusId) buildingEl.querySelector<HTMLElement>(`[data-office="${CSS.escape(focusId)}"]`)?.focus();
+  };
+  const refreshSummary = async (first = false) => {
+    if (summaryBusy || view !== 'building') return; summaryBusy = true; if (first) renderSummary('loading');
+    try {
+      const rows = await loadSummary({
+        floors: async () => (await api<{ floors: Floor[] }>('/floors')).floors,
+        office: (id) => api<OfficeSnapshot>(`/offices/${encodeURIComponent(id)}`),
+        localOwn: () => ownFloor() ? agents(state()).map((t) => ({ status: t.status })) : undefined,
+      });
+      if (view === 'building') renderSummary(rows);
+    } catch (error) { if (view === 'building') renderSummary(error instanceof ApiError && error.status === 401 ? 'signed-out' : 'failed'); }
+    finally { summaryBusy = false; }
+  };
+  const setView = (next: 'office' | 'building') => {
+    view = next; if (!officeEl || !buildingEl) return;
+    officeEl.hidden = next !== 'office'; buildingEl.hidden = next !== 'building';
+    for (const b of viewBtns) b.setAttribute('aria-pressed', String(b.dataset.view === next));
+    clearInterval(summaryTimer); summaryTimer = undefined;
+    if (next === 'building') { void refreshSummary(true); summaryTimer = setInterval(() => void refreshSummary(), 10_000); }
+    else render(true);
+  };
+
   let rowsSig = '';
   const render = (force = false) => {
     if (!panel || !refs) return;
@@ -151,7 +214,7 @@ export function installCompanion(source: AgentSource, opts: Options) {
     refs.chips.replaceChildren(...(['all', ...ORDER] as CompanionFilter[]).map((f) => {
       const b = el('button', `companion-chip${f === 'all' ? '' : ' s-' + f}`, `${f === 'all' ? T.all : T.status[f]} ${f === 'all' ? list.length : c[f]}`);
       b.type = 'button'; b.dataset.filter = f; b.setAttribute('aria-pressed', String(filter === f));
-      b.addEventListener('click', () => { filter = f; render(true); (refs!.chips.querySelector(`[data-filter="${f}"]`) as HTMLElement | null)?.focus(); });
+      b.addEventListener('click', () => { filter = f; if (opts.floorId) updateRememberedFilter(opts.floorId, f as ViewFilter); render(true); (refs!.chips.querySelector(`[data-filter="${f}"]`) as HTMLElement | null)?.focus(); });
       return b;
     }));
     const shown = list.filter((t) => filter === 'all' || t.status === filter);
@@ -211,7 +274,27 @@ export function installCompanion(source: AgentSource, opts: Options) {
       });
       demo.append(connect, notice); body.append(demo);
     }
-    body.append(summary, fresh, chips, list);
+    // Two views: this office (default) and the building-wide summary.
+    const switcher = el('div', 'companion-views'); switcher.setAttribute('role', 'group'); switcher.setAttribute('aria-label', T.views);
+    viewBtns = (['office', 'building'] as const).map((v) => { const b = el('button', '', v === 'office' ? T.thisOffice : T.building); b.type = 'button'; b.dataset.view = v; b.setAttribute('aria-pressed', String(v === 'office')); b.addEventListener('click', () => { setView(v); b.focus(); }); return b; });
+    switcher.append(...viewBtns);
+    officeEl = el('div', 'companion-office-view'); buildingEl = el('div', 'companion-building'); buildingEl.hidden = true;
+    buildingEl.append(el('p', 'companion-note', T.buildingHint), el('p', 'companion-building-total'), el('div', 'companion-building-list'));
+    body.append(switcher, officeEl, buildingEl);
+    officeEl.append(summary, fresh, chips, list);
+    if (opts.shared && opts.floorId) {
+      // Optional: reopen this published office's agents on the next app start (phone-friendly), bound to this account.
+      const floor = opts.floorId, row = el('label', 'companion-remember'), box = el('input'), note = el('p', 'companion-note');
+      box.type = 'checkbox'; box.checked = rememberedView()?.floor === floor; note.setAttribute('role', 'status'); note.textContent = box.checked ? T.remembered : '';
+      box.addEventListener('change', async () => {
+        if (!box.checked) { forgetView(); note.textContent = ''; return; }
+        box.disabled = true;
+        try { await rememberView(floor, filter as ViewFilter); note.textContent = T.remembered; }
+        catch (error) { box.checked = false; note.textContent = error instanceof ApiError && error.status === 401 ? T.rememberSignIn : T.rememberFailed; }
+        finally { box.disabled = false; }
+      });
+      row.append(box, document.createTextNode(T.remember)); officeEl.append(row, note);
+    }
     panel.append(head, body, detail, msg);
     refs = { summary, chips, fresh, list, detail, msg };
     // Everything behind the panel is inert and the scene is not drawn (see main loop) while it is open.
@@ -227,7 +310,7 @@ export function installCompanion(source: AgentSource, opts: Options) {
 
   const close = (restoreFocus: boolean) => {
     if (!panel) return;
-    clearInterval(timer); timer = undefined;
+    clearInterval(timer); timer = undefined; clearInterval(summaryTimer); summaryTimer = undefined; view = 'office'; buildingEl = officeEl = undefined; viewBtns = [];
     panel.remove(); panel = undefined; refs = undefined;
     for (const [n, was] of inerted) n.inert = was;
     inerted = []; document.body.classList.remove('companion-open');
