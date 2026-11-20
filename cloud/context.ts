@@ -18,6 +18,9 @@ export async function authorizedInput(ctx:AuthContext){const input=await ctx.bod
 export const cookieAttributes=(origin:string,sameSite:'Strict'|'Lax'='Strict')=>`Path=/; HttpOnly; SameSite=${sameSite}${origin.startsWith('https:')?'; Secure':''}`;
 export const clientKey=(req:Request)=>hash('client:'+(req.headers.get('CF-Connecting-IP')??'local')).slice(0,32);
 /** Fixed-window counter in auth_limits. Keys are per client or per hashed handle, never global, so one caller cannot lock everyone out. */
+/** Per-account daily caps (generous for people, a wall for scripts or a stolen session). One table, fixed 24 h windows. */
+export const DAILY={invites:30,accept:30,keys:10,office:200,characters:500,messages:1000} as const;
+export const daily=(sql:Sql,kind:keyof typeof DAILY,user:string)=>limit(sql,`day-${kind}:${user}`,DAILY[kind],86400000,'Daily limit reached for this action. Please try again tomorrow.');
 export async function limit(sql:Sql,key:string,max:number,windowMs:number,message:string){
  await sql('DELETE FROM auth_limits WHERE expires<=?',Date.now()).run();
  const row=await sql('INSERT INTO auth_limits VALUES(?,1,?) ON CONFLICT(key) DO UPDATE SET count=count+1 RETURNING count',key,Date.now()+windowMs).first<{count:number}>();

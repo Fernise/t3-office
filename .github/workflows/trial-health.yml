@@ -1,0 +1,24 @@
+# Daily outside check of a hosted trial. Set the repository secret TRIAL_URL (https://…); without it this does nothing.
+# A failed run makes GitHub notify the account that last changed this schedule (by email, per its notification settings).
+name: Trial health
+on:
+  schedule:
+    - cron: '41 6 * * *'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Smoke check (security headers, private routes, locked API, sign-in, sign-up closed)
+        env:
+          TRIAL_URL: ${{ secrets.TRIAL_URL }}
+        run: |
+          if [ -z "$TRIAL_URL" ]; then echo "TRIAL_URL secret not set; nothing to check."; exit 0; fi
+          node scripts/cloud-trial.mjs smoke "$TRIAL_URL"

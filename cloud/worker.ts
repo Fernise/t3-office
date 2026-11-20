@@ -4,10 +4,11 @@ import {scrypt,randomBytes,randomUUID,createHash,timingSafeEqual} from 'node:cry
 import {promisify} from 'node:util';
 import {Buffer} from 'node:buffer';
 import {cloudIdentity} from './identity';
-import {Failure,fail,sessionGuard,quote,cookieAttributes,clientKey,limit} from './context';
+import {Failure,fail,sessionGuard,quote,cookieAttributes,clientKey,limit,daily} from './context';
 import {cloudHumans} from './humans';
 import {cloudSocial,momentOf,momentProjection,type WithMoment} from './social';
 import {cloudPush,pushNotifier,type PushEnv} from './push';
+import {cleanup} from './maintenance';
 import {cloudActivity,activitySnapshot,profileProjection,type Office} from './activity';
 /** ALLOW_PASSWORD_SIGNUP='0' closes handle/password registration; GITHUB_ALLOWED_LOGINS is an optional comma list; API_OPEN='0' is the trial off-switch. */
 type Env={DB:D1Database;APP_ORIGIN:string;ASSETS?:Fetcher;GITHUB_CLIENT_ID?:string;GITHUB_CLIENT_SECRET?:string;GITHUB_TRANSPORT?:Fetcher;GITHUB_ALLOWED_LOGINS?:string;ALLOW_PASSWORD_SIGNUP?:string;API_OPEN?:string}&PushEnv
@@ -30,7 +31,10 @@ async function body(req:Request):Promise<Record<string,unknown>>{
  const bytes=new Uint8Array(size);let i=0;for(const chunk of chunks){bytes.set(chunk,i);i+=chunk.byteLength;}
  try{const value=JSON.parse(new TextDecoder().decode(bytes));if(!value||typeof value!=='object'||Array.isArray(value))fail(400,'Expected JSON object.');return value;}catch{fail(400,'Invalid JSON object.');}
 }
-export default {async fetch(req:Request,env:Env,exec?:{waitUntil(p:Promise<unknown>):void}):Promise<Response>{
+export default {
+ /** Daily Cron Trigger (wrangler env.trial triggers): clean-up only, see maintenance.ts. */
+ async scheduled(_event:unknown,env:Env,exec:{waitUntil(p:Promise<unknown>):void}){exec.waitUntil(cleanup(env.DB).catch(()=>console.error(JSON.stringify({event:'cleanup-failed'}))));},
+ async fetch(req:Request,env:Env,exec?:{waitUntil(p:Promise<unknown>):void}):Promise<Response>{
  const headers=new Headers({'Content-Type':'application/json','Cache-Control':'no-store','X-Content-Type-Options':'nosniff','Referrer-Policy':'no-referrer'});
  const reply=(status:number,data:unknown)=>new Response(JSON.stringify(data),{status,headers});
  try{
@@ -83,10 +87,11 @@ export default {async fetch(req:Request,env:Env,exec?:{waitUntil(p:Promise<unkno
   if(method==='POST'||method==='DELETE'){const input=await body(req);const again=await auth();if(again.id!==u.id||(input.actorId!==undefined&&input.actorId!==u.id))fail(409,'Account changed.');
    if(path==='/logout'&&method==='POST'){await identity.check(authIntent);const statements=[sql(`DELETE FROM human_presence WHERE user=? AND ${sessionGuard(token,u.id)} AND ${authGuard}`,u.id),sql(`DELETE FROM sessions WHERE token=? AND ${authGuard}`,token)];if(authIntent)statements.push(sql('UPDATE auth_contexts SET version=version+1 WHERE id=? AND version=?',authIntent.id,authIntent.version));await db.batch(statements);cookie('',0);return reply(200,{ok:true});}
    if(path==='/invites'&&method==='POST'){
-    if(!['presence','activity'].includes(String(input.scope)))fail(400,'Choose presence or activity.');await sql('DELETE FROM invites WHERE expires<=?',Date.now()).run();const value=nonce(),expiresAt=Date.now()+DAY;
+    if(!['presence','activity'].includes(String(input.scope)))fail(400,'Choose presence or activity.');await daily(sql,'invites',u.id);await sql('DELETE FROM invites WHERE expires<=?',Date.now()).run();const value=nonce(),expiresAt=Date.now()+DAY;
     const result=await sql(`INSERT INTO invites SELECT ?,?,o.id,?,? FROM offices o WHERE o.owner=? AND ${alive} AND (SELECT COUNT(*) FROM invites WHERE office=o.id AND expires>?)<50`,randomUUID(),hash(value),String(input.scope),expiresAt,u.id,token,u.id,Date.now(),Date.now()).run();if(!result.meta.changes)fail(409,'Invitation unavailable.');return reply(201,{token:value,expiresAt});
    }
    if(path==='/accept'&&method==='POST'){
+    await daily(sql,'accept',u.id);
     const invite=hash(text(input.token,100));const results=await db.batch([
      sql(`INSERT INTO grants SELECT ?,i.office,?,i.scope FROM invites i JOIN offices o ON o.id=i.office WHERE i.token=? AND i.expires>? AND o.owner<>? AND ${alive} ON CONFLICT(office,user) DO UPDATE SET scope=excluded.scope RETURNING office AS officeId`,randomUUID(),u.id,invite,Date.now(),u.id,token,u.id,Date.now()),
      sql(`DELETE FROM invites WHERE token=? AND expires>? AND office IN(SELECT id FROM offices WHERE owner<>?) AND ${alive}`,invite,Date.now(),u.id,token,u.id,Date.now())]);

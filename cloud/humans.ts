@@ -1,6 +1,6 @@
 /** D1-backed admitted rooms. Every protected read/write includes current session + room membership predicates. */
 import {randomUUID}from'node:crypto';
-import{authorizedInput,fail,quote,visibleText,type AuthContext}from'./context';
+import{authorizedInput,daily,fail,quote,visibleText,type AuthContext}from'./context';
 export async function cloudHumans(ctx:AuthContext):Promise<Response|null>{
  const{sql,db,path,method,user,reply}=ctx;if(path!=='/human'&&path!=='/rooms'&&!path.startsWith('/rooms/'))return null;
  if(ctx.publisher)fail(401,'Publisher credentials cannot access people.');
@@ -71,6 +71,7 @@ export async function cloudHumans(ctx:AuthContext):Promise<Response|null>{
   if(method==='DELETE'){changed(await sql(`DELETE FROM human_messages WHERE id=? AND office=? AND (user=? OR ${host(office)}) AND ${member(office)}`,target??'',office,user.id).run());return reply(200,{ok:true});}
   ensureMethod('POST');if(typeof input.text!=='string'||!input.text.trim()||input.text.length>500||/[\u0000-\u0008\u000b-\u001f\u007f]/.test(input.text))fail(400,'Use a short visible message.');const text=input.text.trim(),client=visibleText(input.clientId,80);if(!/^[-\w]+$/.test(client))fail(400,'Invalid message identifier.');const lease=String(input.lease??'');if(!/^[a-f0-9-]{36}$/i.test(lease))fail(409,'Invalid room lease.');const valid=`${member(office)} AND EXISTS(SELECT 1 FROM human_presence WHERE user=${uid} AND office=${quote(office)} AND lease=${quote(lease)})`;
   if(!await sql(`SELECT user FROM human_presence WHERE user=? AND ${valid}`,user.id).first())fail(409,'Room lease changed.');
+  await daily(sql,'messages',user.id);
   const prior=await sql(`SELECT id,office FROM human_receipts WHERE user=? AND client=? AND ${valid}`,user.id,client).first<{id:string;office:string}>();if(prior){if(prior.office!==office)fail(409,'Message belongs to another room.');return reply(200,{id:prior.id});}
   const mid=randomUUID(),now=Date.now();const results=await db.batch([
    sql(`INSERT OR IGNORE INTO human_receipts SELECT ?,?,?,?,? WHERE ${valid} AND NOT EXISTS(SELECT 1 FROM human_receipts WHERE user=? AND created>?) AND (SELECT COUNT(*) FROM human_receipts WHERE user=? AND created>?)<20`,user.id,client,office,mid,now,user.id,now-1000,user.id,now-60000),

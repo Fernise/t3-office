@@ -8,6 +8,8 @@ Two people on different computers use the same building. This page covers everyt
 - One D1 database, `t3-office-trial`. It holds accounts, invitations, grants, published office snapshots, conversations and social data. No private T3 data: `/api/t3/*` and `/api/board` do not exist on the Worker.
 - Sign-in is **GitHub only**, limited to the GitHub logins in `GITHUB_ALLOWED_LOGINS`. Password sign-up is closed (`ALLOW_PASSWORD_SIGNUP=0`).
 - Abuse limits are per connection and per account, never global: 20 sign-in attempts per 15 min per connection, 10 per account handle, 10 new accounts per connection per day, 20 new sign-in contexts per connection per 15 min. These sit alongside the existing invitation, publishing, conversation and doorbell limits.
+- Daily per-account caps (fixed 24 h windows): 30 invitations created, 30 invitation accepts, 10 publisher keys (revoking does not reset it), 200 office name/style changes, 500 character saves, 1,000 chat messages. On top of the existing burst limits (chat 1/s and 20/min, alerts, doorbell, moments). A capped action answers 429 "Daily limit reached".
+- A daily clean-up (Cron Trigger 03:23 UTC) removes expired sessions and the alerts tied to them, expired invitations and publisher keys, old rate-limit counters and abandoned sign-in attempts, day-old visit requests, cooldowns, chat receipts and presence, and alert history older than 90 days. It empties published agent snapshots not updated for a day (already hidden after 45 s; the last-update time stays). It logs counts only.
 
 ## Cost
 
@@ -61,6 +63,9 @@ Agent activity on the hosted building comes only from explicit browser sharing o
 | Need | Command |
 | --- | --- |
 | Live error stream | `npm run cloud:trial:logs` |
+| Daily outside health check | GitHub Actions workflow `Trial health` (06:41 UTC) runs the smoke check against the repository secret `TRIAL_URL` (`gh secret set TRIAL_URL`); a failure emails the account that last changed the workflow. Run it now: `gh workflow run trial-health.yml`. GitHub pauses scheduled workflows after 60 days without repository activity. |
+| Prove a backup restores | `npm run cloud:trial:restore-check` loads the newest backup into a throwaway local database, checks quick_check and foreign keys, compares table counts with the live database (counts only), boots the Worker on the copy and deletes it. `npm run test:cloud:restore` runs the same drill on a synthetic backup with data, including a restored sign-in. |
+| See the clean-up | `npm run cloud:trial:logs` around 03:23 UTC shows `{"event":"cleanup", …counts}`. |
 | Back up now | `npm run cloud:trial:backup`. Writes `.local/backups/trial-<UTC time>.sql`, which is ignored by Git. The file contains account rows and hashed session tokens, so keep it private and delete it after the trial. |
 | Restore to a point in time (last 7 days) | `npx wrangler d1 time-travel info t3-office-trial --env trial --config cloud/wrangler.jsonc`, then `… time-travel restore t3-office-trial --timestamp <ISO time> --env trial --config cloud/wrangler.jsonc` |
 | Restore from an export | Create a fresh database, then `npx wrangler d1 execute <db> --remote --file .local/backups/<file>.sql`, and point `database_id` at it. |
